@@ -1,0 +1,84 @@
+#####################################################
+### author : schlee
+### 1) create container [main_proc + ld_libraries]
+### 2) push to registry if exist
+
+#!/bin/bash
+
+### check argc
+if [ "$#" -ne 2 ];then
+	echo usage} "$0 proc_name version"
+	exit
+fi
+
+### script start
+proc_name=$1
+version=$2
+echo "create container for [${proc_name}] with version [${version}]"
+echo "======================================================================="
+
+### get env REGISTRY_INFO
+registry_info=`echo $REGISTRY_INFO`
+if [ -z ${registry_info} ];then
+	echo "< [REGISTRY_INFO] env not setted, proc fail!>"
+	exit
+fi
+echo "registry_info[${registry_info}]"
+echo ""
+
+### check Dockerfile exist
+if [ ! -f Dockerfile ];then
+	echo "< [Dockerfile] not exist, proc fail!>"
+	exit
+fi
+
+### check main proc exist
+if [ ! -f ${proc_name} ];then
+	echo "< [${proc_name}] not exist, proc fail!>"
+	exit
+fi
+
+### create tempdir if not exist
+if [ ! -d .docker_build ];then
+	echo "< [.docker_build dir] not exist will create it>"
+	mkdir .docker_build
+fi
+
+### cp proc & docker file to tempdir
+\cp -f ./Dockerfile .docker_build
+\cp -f ./${proc_name} .docker_build
+cd .docker_build
+
+### -func- create sub-dir & copy link-dest-library
+copy_libs() {\
+	echo "create libs=[$1]=>from links=[$2] to DIRS=[$3]"
+	if [ ! -d "./$3" ];then
+		mkdir -p "./$3"
+	fi
+	\cp $2 ./$1
+}
+
+### check proc-library and copy to tempdir
+ldd ./${proc_name} | while read -r line
+do
+	line_cnt=`wc -w <<< $line`
+	if [ "$line_cnt" = "4" ]; then
+		LIBS=`echo $line | awk '{ print $3 }'`
+		LINKS=`readlink -f ${LIBS}`
+		DIRS=`echo "${LIBS%/*}"`
+		copy_libs ${LIBS} ${LINKS} ${DIRS}
+	elif [ "$line_cnt" = "2" ]; then
+		LIBS=`echo $line | awk '{ print $1 }'`
+		LINKS=`readlink -f ${LIBS}`
+		DIRS=`echo "${LIBS%/*}"`
+		copy_libs ${LIBS} ${LINKS} ${DIRS}
+	fi
+done
+
+### create container & set tag & push
+echo "< create container [${proc_name}:${version}]>"
+docker build --tag ${proc_name}:${version} .
+docker tag ${proc_name}:${version} ${registry_info}/${proc_name}:${version}
+docker push ${registry_info}/${proc_name}:${version}
+
+echo "< done >"

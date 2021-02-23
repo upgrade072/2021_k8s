@@ -1,0 +1,12 @@
+#!/bin/bash
+
+### get env REGISTRY_INFO
+registry_info=`echo $REGISTRY_INFO`
+if [ -z ${registry_info} ];then
+    echo "< [REGISTRY_INFO] env not setted, proc fail!>"
+    exit
+fi
+echo "registry_info[${registry_info}]"
+echo ""
+
+curl -sk -X GET https://${registry_info}/v2/_catalog | jq
