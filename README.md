@@ -8,7 +8,7 @@
 ```
 ```
  - jq : simple json parser
- - build_container : create container & push
+ - bc : create container & push
  - get_repo : get image list
  - get_tags : get image tags
  - label_check : check image labels
