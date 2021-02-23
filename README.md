@@ -9,8 +9,8 @@
 ```
  - jq : simple json parser
  - build_container : create container & push
- - get_repo	: get image list
- - get_tags	: get image tags
+ - get_repo : get image list
+ - get_tags : get image tags
  - label_check : check image labels
  - get_digest : check image digest (for del_image)
  - del_image : delete image
