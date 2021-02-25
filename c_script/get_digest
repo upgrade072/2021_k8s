@@ -17,4 +17,4 @@ fi
 echo "registry_info[${registry_info}]"
 echo ""
 
-curl -ski -X GET https://${registry_info}/v2/${image_name}/manifests/${tag_info} -H "Accept: application/vnd.docker.distribution.manifest.v2+json" | grep "docker-content-digest" | awk '{ print $2 }'
+curl -ski -X GET https://${registry_info}/v2/${image_name}/manifests/${tag_info} -H "Accept: application/vnd.docker.distribution.manifest.v2+json" | grep -i "docker-content-digest" | awk '{ print $2 }'
