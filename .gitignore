@@ -6,6 +6,7 @@ tags
 add.sh
 *.tar.gz
 .tmp
+.docker_build
 
 #----------------------------------
 # Prerequisites
