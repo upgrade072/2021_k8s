@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-test-map.v1
+  namespace: default
+data:
+  EMS_TOPO_ADDR: 192.168.70.143:8000
+  SOME_OTHER: data bla bla updated!

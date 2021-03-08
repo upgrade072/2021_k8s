@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: k8s-test-topo
+spec:
+  selector:
+    matchLabels:
+      app: k8s-test-topo
+  serviceName: "k8s-test-topo"
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: k8s-test-topo
+        name: test_mp
+        type: fep
+        group: test_sys
+    spec:
+      volumes:
+      - name: shared-bin
+        emptyDir: {}
+      - name: shared-conf
+        emptyDir: {}
+      - name: label-conf
+        downwardAPI:
+          items:
+            - path: name
+              fieldRef:
+                fieldPath: metadata.labels['name']
+            - path: type
+              fieldRef:
+                fieldPath: metadata.labels['type']
+            - path: group
+              fieldRef:
+                fieldPath: metadata.labels['group']
+      initContainers:
+        - name: init-container
+          image: 192.168.70.143:5000/busybox:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-bin
+            mountPath: /usr/local/bin
+          - name: shared-conf
+            mountPath: /conf
+          env:
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: MY_POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: MY_POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: MY_POD_SERVICE_ACCOUNT
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.serviceAccountName
+            - name: MY_NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          command: ["/bin/sh", "-c", "cp /bin/* /usr/local/bin;\n
+            echo export MY_NODE_NAME=$MY_NODE_NAME > /conf/k8s.env;\n
+            echo export MY_POD_NAME=$MY_POD_NAME >> /conf/k8s.env;\n
+            echo export MY_POD_NAMESPACE=$MY_POD_NAMESPACE >> /conf/k8s.env;\n
+            echo export MY_POD_IP=$MY_POD_IP >> /conf/k8s.env;\n
+            echo export MY_POD_SERVICE_ACCOUNT=$MY_POD_SERVICE_ACCOUNT >> /conf/k8s.env;\n
+            echo export MY_NODE_IP=$MY_NODE_IP >> /conf/k8s.env;\n
+            echo export EMS_TOPO_ADDR=192.168.70.143:8000 >> /conf/k8s.env;\n
+            "]
+      containers:
+        - name: test-container
+          image: 192.168.70.143:5000/topo:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-bin
+            mountPath: /bin
+          - name: shared-conf
+            mountPath: /conf
+          - name: label-conf
+            mountPath: /label_conf
+          command: ["/bin/sh", "-c", "source /conf/k8s.env; /topo"]
+#command: ["/bin/sh", "-c", "source /conf/k8s.env; while true; do echo $MY_NODE_NAME; sleep 10; done"]
