@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: k8s-test-nfs-vol
+spec:
+  volumes:
+  - name: nfs-vol
+    nfs:
+      server: 192.168.70.143
+      path: /nfs_data
+  containers:
+    - name: test-container
+      image: 192.168.70.143:5000/busybox:1.0
+      imagePullPolicy: Always
+      env:
+      - name: POD_NAME
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.name
+      volumeMounts:
+      - name: nfs-vol
+        mountPath: /data1
+        subPathExpr: $(POD_NAME) # create /nfs/data/$(POD_NAME:k8s-test-08), if non-exist
+      command: ["sh", "-c", "tail -f /dev/null"]
