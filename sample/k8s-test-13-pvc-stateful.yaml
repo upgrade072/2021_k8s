@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: k8s-pvc-stateful
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      apps: k8s-test-pvc-app
+  serviceName: "k8s-test-svc-pvc-stateful"
+  template:
+    metadata:
+      labels:
+        apps: k8s-test-pvc-app
+    spec:
+      containers:
+        - name: test-container
+          image: 192.168.70.143:5000/busybox:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: k8s-pvc
+            mountPath: /data1
+          command: ["sh", "-c", "tail -f /dev/null"]
+  volumeClaimTemplates:
+  - metadata:
+      name: k8s-pvc # pvc create name = k8s-pvc- [metadata.name] -0-1-2
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 100M

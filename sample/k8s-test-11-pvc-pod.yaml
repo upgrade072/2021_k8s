@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: k8s-test-pvc-vol
+spec:
+  volumes:
+  - name: pvc-vol
+    persistentVolumeClaim:
+      claimName: my-pvclaim
+  containers:
+    - name: test-container
+      image: 192.168.70.143:5000/busybox:1.0
+      imagePullPolicy: Always
+      volumeMounts:
+      - name: pvc-vol
+        mountPath: /data1
+      command: ["sh", "-c", "tail -f /dev/null"]

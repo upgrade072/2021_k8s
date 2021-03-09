@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: k8s-test-pvc-vol-repl
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      apps: k8s-test-pvc-app
+  template:
+    metadata:
+      labels:
+        apps: k8s-test-pvc-app
+    spec:
+      volumes:
+      - name: pvc-vol
+        persistentVolumeClaim:
+          claimName: my-pvclaim
+      containers:
+        - name: test-container
+          image: 192.168.70.143:5000/busybox:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: pvc-vol
+            mountPath: /data1
+          command: ["sh", "-c", "tail -f /dev/null"]
