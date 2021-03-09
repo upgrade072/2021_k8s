@@ -8,11 +8,3 @@ spec:
       image: 192.168.70.143:5000/busybox:1.0
       imagePullPolicy: Always
       command: ["sh", "-c", "tail -f /dev/null"]
-    - name: test-container-1
-      image: 192.168.70.143:5000/busybox:1.0
-      imagePullPolicy: Always
-      command: ["sh", "-c", "tail -f /dev/null"]
-    - name: test-container-2
-      image: 192.168.70.143:5000/busybox:1.0
-      imagePullPolicy: Always
-      command: ["sh", "-c", "tail -f /dev/null"]
