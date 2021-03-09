@@ -1,0 +1,110 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-test-at-specific-node-0
+  labels:
+    node_info: k8s-vm.1
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  local:
+    path: /disk_pv_test
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - k8s-vm.1
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-test-at-specific-node-1
+  labels:
+    node_info: k8s-vm.2
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  local:
+    path: /disk_pv_test
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - k8s-vm.2
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-test-at-specific-node-2
+  labels:
+    node_info: k8s-vm.4
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  local:
+    path: /disk_pv_test
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - k8s-vm.4
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: k8s-pvc-k8s-pvc-stateful-0
+spec:
+  accessModes:
+  - ReadWriteOnce
+  selector:
+    matchLabels:
+      node_info: k8s-vm.1
+  resources:
+    requests:
+      storage: 100M
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: k8s-pvc-k8s-pvc-stateful-1
+spec:
+  accessModes:
+  - ReadWriteOnce
+  selector:
+    matchLabels:
+      node_info: k8s-vm.2
+  resources:
+    requests:
+      storage: 100M
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: k8s-pvc-k8s-pvc-stateful-2
+spec:
+  accessModes:
+  - ReadWriteOnce
+  selector:
+    matchLabels:
+      node_info: k8s-vm.4
+  resources:
+    requests:
+      storage: 100M
