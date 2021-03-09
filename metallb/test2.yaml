@@ -1,0 +1,79 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: metal-lb-00
+  annotations:
+    metallb.universe.tf/address-pool: pool-A
+spec:
+  ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: nginx
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: metal-lb-01
+  annotations:
+    metallb.universe.tf/address-pool: pool-B
+spec:
+  ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: nginx
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: metal-lb-02
+  annotations:
+    metallb.universe.tf/address-pool: pool-A
+spec:
+  ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: nginx
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: metal-lb-03
+  annotations:
+    metallb.universe.tf/address-pool: pool-B
+spec:
+  ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: nginx
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: metal-lb-04
+  annotations:
+    metallb.universe.tf/address-pool: pool-A
+spec:
+  ports:
+  - name: http
+    port: 8081
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: nginx
+  type: LoadBalancer
