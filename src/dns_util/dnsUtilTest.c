@@ -18,19 +18,26 @@
  
 int main(int argc , char **argv)
 {
+    int	ret = 0;
 	if(argc != 3) {
 		fprintf(stderr, "usage: dnsQuery [hostname] [dns_svr_ip]\n");
 		exit(0);
 	}
     char ip[48];
     unsigned char hostname[100];
+    char dns_server[100];
 	strcpy((char*)hostname, argv[1]);
 	fprintf(stderr, "hostname=[%s]\n", hostname);
 
-	strcpy(dns_servers[0] , argv[2]);
-	fprintf(stderr, "dns server=[%s]\n", dns_servers[0]);
+	strcpy(dns_server, argv[2]);
+	fprintf(stderr, "dns server=[%s]\n", dns_server);
 
-    getHostFirstIpByName(ip, (char*)hostname, dns_servers[0]);
-    printf("ip=%s hostname=%s dns_servers=%s\n", ip, hostname, dns_servers[0]);
+    ret = getHostFirstIpByName(ip, (char*)hostname, dns_server);
+    if(ret == 0) {
+        printf("ip=%s hostname=%s dns_servers=%s\n", ip, hostname, dns_server);
+    }
+    else {
+        printf("fail hostname=%s dns_servers=%s\n", hostname, dns_server);
+    }
     return 0;
 }

@@ -36,7 +36,9 @@ TEST_OBJS = ${TEST_SRCS:.c=.o}
 .c.o:
 	${CC} ${CFLAGS} -c $<
 
-all : ${TARGET} ${TARGET_TEST} install
+all : ${TARGET} install
+
+exam : ${TARGET} ${TARGET_TEST}
 
 ${TARGET}: ${OBJS}
 	${AR} rcu $@ ${OBJS}

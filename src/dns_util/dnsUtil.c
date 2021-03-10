@@ -23,8 +23,8 @@
 int SEND_CNT;
 int RECV_CNT;
 
-char dns_servers[10][100];
-int dns_server_count = 0;
+/* char dns_servers[10][100]; */
+/* int dns_server_count = 0; */
 
 
 /** 
@@ -191,10 +191,11 @@ void setupDnsQuery(unsigned char **query, char *buf, char *hostName)
  * @param buf 
  * @param nameServer 
  */
-void runDnsQuery(char *buf, char *qname, char *nameServer)
+int runDnsQuery(char *buf, int maxBufSiz, char *qname, char *nameServer)
 {
     int	s;
     int	i = 0;
+    int	ret = 0;
     struct sockaddr_in dest;
     s = socket(AF_INET , SOCK_DGRAM , IPPROTO_UDP); //UDP packet for DNS queries
 #if 1
@@ -214,22 +215,24 @@ void runDnsQuery(char *buf, char *qname, char *nameServer)
               sizeof(struct DNS_HEADER) + (strlen((const char*)qname)+1) + sizeof(struct QUESTION),
               0,(struct sockaddr*)&dest,sizeof(dest)) < 0) {
         perror("sendto failed");
+        ret = -1;
     }
     else {
 		SEND_CNT++;
-	}
-    /* printf("Done"); */
-    
-    //Receive the answer
-    i = sizeof(dest);
-    /* printf("Receiving answer...\n"); */
-    if(recvfrom (s,(char*)buf, 65536, 0, (struct sockaddr*)&dest , (socklen_t*)&i ) < 0) {
-        perror("recvfrom failed");
+        /* printf("Done"); */
+        //Receive the answer
+        i = sizeof(dest);
+        /* printf("Receiving answer...\n"); */
+        if(recvfrom (s,(char*)buf, maxBufSiz, 0, (struct sockaddr*)&dest , (socklen_t*)&i ) < 0) {
+            perror("recvfrom failed");
+            ret = -1;
+        }
+        else {
+            RECV_CNT++;
+        }
     }
-    else {
-		RECV_CNT++;
-	}
     /* printf("Done"); */
+    return ret;
 }
 
 /** 
@@ -372,7 +375,7 @@ void clearParseResult(RES_RECORD *answers, RES_RECORD *auth, RES_RECORD *addit)
  */
 int getHostFirstIpByName(char *ip, char *hostName, char *nameServer)
 {
-    unsigned char buf[65536];
+    unsigned char buf[MAX_DNS_BUFFER_SIZE];
     unsigned char *qname = NULL;
     int i = 0;
     int	ret = -1;
@@ -386,20 +389,20 @@ int getHostFirstIpByName(char *ip, char *hostName, char *nameServer)
 	memset(addit, 0x00, sizeof(RES_RECORD) * 20);
     
     setupDnsQuery(&qname, (char*)&buf[0], hostName);
-    runDnsQuery((char*)&buf[0], (char*)qname, nameServer);
-    parseDnsResult(answers, auth, addit, &buf[0], (char*)qname);
-    
-    /* dns = (struct DNS_HEADER*)buf; */
-    /* printf("\nAnswer Records : %d \n" , ntohs(dns->ans_count) ); */
-    if(ntohs(answers[i].resource->type) == T_A) {
-        long *p;
-        p=(long*)answers[i].rdata;
-        a.sin_addr.s_addr=(*p); //working without ntohl
-        /* printf("has IPv4 address : %s\n",inet_ntoa(a.sin_addr)); */
-        strcpy(ip, inet_ntoa(a.sin_addr));
-        ret = 0;
+    if((ret = runDnsQuery((char*)&buf[0], MAX_DNS_BUFFER_SIZE, (char*)qname, nameServer)) == 0) {
+        parseDnsResult(answers, auth, addit, &buf[0], (char*)qname);
+        /* dns = (struct DNS_HEADER*)buf; */
+        /* printf("\nAnswer Records : %d \n" , ntohs(dns->ans_count) ); */
+        if(ntohs(answers[i].resource->type) == T_A) {
+            long *p;
+            p=(long*)answers[i].rdata;
+            a.sin_addr.s_addr=(*p); //working without ntohl
+            /* printf("has IPv4 address : %s\n",inet_ntoa(a.sin_addr)); */
+            strcpy(ip, inet_ntoa(a.sin_addr));
+            ret = 0;
+        }
+        clearParseResult(answers, auth, addit);
     }
-    clearParseResult(answers, auth, addit);
     return ret;
 }
 

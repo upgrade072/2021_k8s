@@ -17,6 +17,8 @@
 #define T_SOA 6 /* start of authority zone */
 #define T_PTR 12 /* domain name pointer */
 #define T_MX 15 //Mail server
+
+#define MAX_DNS_BUFFER_SIZE	65536
  
 //DNS header structure
 struct DNS_HEADER
@@ -79,7 +81,7 @@ typedef struct
 //Function Prototypes
 extern int getHostFirstIpByName(char *ip, char *hostName, char *nameServer);
 
-extern char dns_servers[10][100];
+/* extern char dns_servers[10][100]; */
 extern int SEND_CNT;
 extern int RECV_CNT;
 
