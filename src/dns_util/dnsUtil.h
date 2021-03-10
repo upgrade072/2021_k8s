@@ -79,6 +79,7 @@ typedef struct
 } QUERY;
 
 //Function Prototypes
+extern int getHostFirstIpByNameTimeOut(char *ip, char *hostName, char *nameServer, int timeOutMil);
 extern int getHostFirstIpByName(char *ip, char *hostName, char *nameServer);
 
 /* extern char dns_servers[10][100]; */
