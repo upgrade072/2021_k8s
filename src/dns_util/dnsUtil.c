@@ -191,7 +191,7 @@ void setupDnsQuery(unsigned char **query, char *buf, char *hostName)
  * @param buf 
  * @param nameServer 
  */
-int runDnsQuery(char *buf, int maxBufSiz, char *qname, char *nameServer)
+int runDnsQuery(char *buf, int maxBufSiz, char *qname, char *nameServer, int timeOutMil)
 {
     int	s;
     int	i = 0;
@@ -200,8 +200,7 @@ int runDnsQuery(char *buf, int maxBufSiz, char *qname, char *nameServer)
     s = socket(AF_INET , SOCK_DGRAM , IPPROTO_UDP); //UDP packet for DNS queries
 #if 1
 	struct timeval opt_val = {0, 0};
-	/* opt_val.tv_usec = timeout_ms * 1000; */
-    opt_val.tv_usec = 10 * 1000;
+    opt_val.tv_usec = timeOutMil * 1000;
 	int opt_len = sizeof(opt_val);
 	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &opt_val, opt_len);
 #endif
@@ -366,14 +365,18 @@ void clearParseResult(RES_RECORD *answers, RES_RECORD *auth, RES_RECORD *addit)
     clearResRecord(addit, MAX_RES_RECORD_CNT);
 }
 
+
 /** 
  * 
  * 
  * @param ip 
  * @param hostName 
  * @param nameServer 
+ * @param timeMil 
+ * 
+ * @return 
  */
-int getHostFirstIpByName(char *ip, char *hostName, char *nameServer)
+int getHostFirstIpByNameTimeOut(char *ip, char *hostName, char *nameServer, int timeOutMil)
 {
     unsigned char buf[MAX_DNS_BUFFER_SIZE];
     unsigned char *qname = NULL;
@@ -389,7 +392,7 @@ int getHostFirstIpByName(char *ip, char *hostName, char *nameServer)
 	memset(addit, 0x00, sizeof(RES_RECORD) * 20);
     
     setupDnsQuery(&qname, (char*)&buf[0], hostName);
-    if((ret = runDnsQuery((char*)&buf[0], MAX_DNS_BUFFER_SIZE, (char*)qname, nameServer)) == 0) {
+    if((ret = runDnsQuery((char*)&buf[0], MAX_DNS_BUFFER_SIZE, (char*)qname, nameServer, timeOutMil)) == 0) {
         parseDnsResult(answers, auth, addit, &buf[0], (char*)qname);
         /* dns = (struct DNS_HEADER*)buf; */
         /* printf("\nAnswer Records : %d \n" , ntohs(dns->ans_count) ); */
@@ -406,3 +409,14 @@ int getHostFirstIpByName(char *ip, char *hostName, char *nameServer)
     return ret;
 }
 
+/** 
+ * 
+ * 
+ * @param ip 
+ * @param hostName 
+ * @param nameServer 
+ */
+int getHostFirstIpByName(char *ip, char *hostName, char *nameServer)
+{
+    return getHostFirstIpByNameTimeOut(ip, hostName, nameServer, 10);
+}
