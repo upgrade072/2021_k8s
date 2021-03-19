@@ -10,7 +10,7 @@
 #include <pthread.h>
 
 #include <fort.h>
-#include <libtopo.h>
+#include <libs.h>
 
 /* from env */
 #define EMS_TOPO_ADDR	"EMS_TOPO_ADDR"

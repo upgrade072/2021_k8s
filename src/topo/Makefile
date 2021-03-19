@@ -7,7 +7,7 @@ BUILD_LIBS_PATH	= ../build/lib
 BUILD_LIBS = $(BUILD_LIBS_PATH)/libevent_pthreads.a \
              $(BUILD_LIBS_PATH)/libevent.a \
              $(BUILD_LIBS_PATH)/libfort.a \
-             $(BUILD_LIBS_PATH)/libtopo.a \
+             $(BUILD_LIBS_PATH)/libs.a \
              -lpthread -lrt -lm
 
 SRCS        = main.c init.c util.c udp.c node.c

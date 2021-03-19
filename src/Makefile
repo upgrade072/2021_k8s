@@ -1,4 +1,5 @@
-SUBDIRS := libfort libevent libtopo topo
+SUBDIRS := libfort libevent libs dns_util libexternal \
+	topo k8smgr
 
 subdirs: $(SUBDIRS)
 
