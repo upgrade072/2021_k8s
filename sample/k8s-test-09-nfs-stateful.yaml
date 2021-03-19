@@ -29,6 +29,6 @@ spec:
                 fieldPath: metadata.name
           volumeMounts:
           - name: nfs-vol
+            subPathExpr: $(POD_NAME)/hello # create /nfs/data/$(POD_NAME:k8s-test-08), if non-exist
             mountPath: /data1
-            subPathExpr: $(POD_NAME) # create /nfs/data/$(POD_NAME:k8s-test-08), if non-exist
           command: ["sh", "-c", "tail -f /dev/null"]

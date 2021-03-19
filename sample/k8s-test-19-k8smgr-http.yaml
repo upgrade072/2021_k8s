@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: k8s-test-svc
+spec:
+  selector:
+    app: server
+  ports:
+    - protocol: TCP
+      port: 12345
+      name: named-port-exam
+      targetPort: 12345
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: k8s-test-k8smgr
+  labels:
+    app: server
+spec:
+  volumes:
+    - name: data-sysconfig
+      configMap:
+        name: config-data-dir
+  containers:
+    - name: proca
+      image: 192.168.70.143:5000/proc_a:1.0
+      imagePullPolicy: Always
+      env:
+        - name: IV_HOME
+          value: "/"
+      volumeMounts:
+        - name: data-sysconfig
+          mountPath: "/data"
+      livenessProbe:
+        failureThreshold: 3
+        periodSeconds: 1
+        httpGet:
+          path: /live/PROC_A
+          port: 32768
+      command: ["/proc_a"]
+    - name: procb
+      image: 192.168.70.143:5000/proc_b:1.0
+      imagePullPolicy: Always
+      env:
+        - name: IV_HOME
+          value: "/"
+      volumeMounts:
+        - name: data-sysconfig
+          mountPath: "/data"
+      livenessProbe:
+        failureThreshold: 3
+        periodSeconds: 1
+        httpGet:
+          path: /live/PROC_B
+          port: 32768
+      command: ["/proc_b"]
+    - name: k8smgr
+      image: 192.168.70.143:5000/k8smgr:1.0
+      imagePullPolicy: Always
+      env:
+        - name: IV_HOME
+          value: "/"
+      volumeMounts:
+        - name: data-sysconfig
+          mountPath: "/data"
+      startupProbe:
+        initialDelaySeconds: 5
+        periodSeconds: 1
+        httpGet:
+          path: /start
+          port: 32768
+      readinessProbe:
+        failureThreshold: 3
+        periodSeconds: 1
+        httpGet:
+          path: /ready
+          port: 32768
+      livenessProbe:
+        failureThreshold: 3
+        periodSeconds: 1
+        httpGet:
+          path: /live/K8SMGR
+          port: 32768
+      command: ["/k8smgr"]

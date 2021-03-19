@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-data-dir
+  namespace: default
+data:
+  sysconfig: |
+    [GENERAL]
+    MP_LABEL     = K8SF
+
+    [APPLICATIONS]
+    #name   =   where       alarm_level                 msgQkey     msgQkey_2   msgQkey_3   msgQkey_4
+    #                   (1:minor, 2:major, 3:critical)
+    #-------------------------------------------------------------------------------------------------
+    PROC_A   =  bin/proc_a      3                       0x75000     NULL        NULL
+    PROC_B   =  bin/proc_b      3                       0x75001     NULL        NULL
+    K8SMGR   =  bin/k8smgr      3                       0x75002     NULL        NULL
+
+    [SHARED_MEMORY_KEY]
+    SHM_KEEPALIVE       = 0x93000

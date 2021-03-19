@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: altibase-test
+spec:
+  containers:
+    - name: altibase
+      image: altibase/altibase
+      imagePullPolicy: IfNotPresent
+      env:
+        - name: MODE
+          value: "daemon"
+  nodeSelector:
+      kubernetes.io/hostname: k8s-vm.1

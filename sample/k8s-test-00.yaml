@@ -3,6 +3,14 @@ kind: Pod
 metadata:
   name: k8s-test-00
 spec:
+  # for this edit '/etc/sysconfig/kubelet' KUBELET_EXTRA_ARGS=--allowed-unsafe-sysctls 'kernel.sem*'
+  # then run 'service restart kubelet'
+  securityContext:
+     sysctls:
+     - name: kernel.sem
+       value: "512 32000 512 4096"
+  nodeSelector:
+    kubernetes.io/hostname: k8s-vm.1
   containers:
     - name: test-container-0
       image: 192.168.70.143:5000/busybox:1.0
