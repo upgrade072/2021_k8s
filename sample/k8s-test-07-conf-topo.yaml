@@ -33,6 +33,8 @@ spec:
             - path: group
               fieldRef:
                 fieldPath: metadata.labels['group']
+      - name: shared-data
+        emptyDir: {}
       initContainers:
         - name: init-container
           image: 192.168.70.143:5000/busybox:1.0
@@ -93,4 +95,6 @@ spec:
             mountPath: /conf
           - name: label-conf
             mountPath: /label_conf
+          - name: shared-data
+            mountPath: /data
           command: ["/bin/sh", "-c", "source /conf/k8s.env; /topo"]

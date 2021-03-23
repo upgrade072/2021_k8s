@@ -10,7 +10,7 @@ BUILD_LIBS = $(BUILD_LIBS_PATH)/libevent_pthreads.a \
              $(BUILD_LIBS_PATH)/libs.a \
              -lpthread -lrt -lm
 
-SRCS        = main.c init.c util.c udp.c node.c
+SRCS        = main.c init.c udp.c node.c
 
 OBJS        = $(SRCS:.c=.o)
 

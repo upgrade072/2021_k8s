@@ -18,12 +18,10 @@ int main()
 {
 	fprintf(stderr, "--- [%s] alive! ---\n", __progname);
 
-#if 1
 	if (keepalivelib_init(__progname) < 0) {
 		fprintf(stderr, "%s() [%s] unregisterd to sysconfig!\n", __func__, __progname);
 		return -1;
 	}
-#endif
 
 	while (1) {
 		fprintf(stderr, "keepalive increase(%s)!\n", __progname);

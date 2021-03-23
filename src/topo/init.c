@@ -109,9 +109,7 @@ int init_omp_client(main_ctx_t *MAIN_CTX)
 	}
 
 	/* get assoc info from ~/label_conf */
-	char label_cmd[512] = {0,};
-	sprintf(label_cmd, "%s", "cat /label_conf/name");
-	if (popen_cmd(label_cmd, MAIN_CTX->name, 127) < 0) {
+	if (fopen_read("/label_conf/name", MAIN_CTX->name, 127) == NULL) {
 		return -1;
 	} else {
 		fprintf(stderr, "%s(): /label_conf/name=[%s] checked! ", __func__, MAIN_CTX->name);
@@ -119,15 +117,13 @@ int init_omp_client(main_ctx_t *MAIN_CTX)
 		fprintf(stderr, "name converted to=[%s]!\n", MAIN_CTX->name);
 	}
 
-	sprintf(label_cmd, "%s", "cat /label_conf/type");
-	if (popen_cmd(label_cmd, MAIN_CTX->type, 127) < 0) {
+	if (fopen_read("/label_conf/type", MAIN_CTX->type, 127) == NULL) {
 		return -1;
 	} else {
 		fprintf(stderr, "%s(): /label_conf/type=[%s] checked!\n", __func__, MAIN_CTX->type);
 	}
 
-	sprintf(label_cmd, "%s", "cat /label_conf/group");
-	if (popen_cmd(label_cmd, MAIN_CTX->group, 127) < 0) {
+	if (fopen_read("/label_conf/group", MAIN_CTX->group, 127) == NULL) {
 		return -1;
 	} else {
 		fprintf(stderr, "%s(): /label_conf/group=[%s] checked!\n", __func__, MAIN_CTX->group);

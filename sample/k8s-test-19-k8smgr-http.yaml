@@ -7,9 +7,9 @@ spec:
     app: server
   ports:
     - protocol: TCP
-      port: 12345
+      port: 32768
       name: named-port-exam
-      targetPort: 12345
+      targetPort: 32768
 ---
 apiVersion: v1
 kind: Pod

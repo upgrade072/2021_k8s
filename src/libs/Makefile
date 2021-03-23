@@ -2,7 +2,7 @@ include ../MakeVars
 
 CFLAG       = $(CFLAGS) -Wno-char-subscripts
 
-SRCS        = elem.c
+SRCS        = elem.c util.c
 OBJS        = $(SRCS:.c=.o)
 
 AOUT        = libs.a
