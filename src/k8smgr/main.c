@@ -37,9 +37,10 @@ typedef struct proc_ctx_t {
 
 typedef struct pod_info_t {
 	char *my_pod_name;
-	char my_mp_name[1024];
-	char peer_mp_name[1024];
+	char *my_service_name;
+	char *my_pod_namespace;
 
+	char peer_pod_url[1024];
 	int peer_pod_start;
 	int peer_pod_ready;
 } pod_info_t;
@@ -68,6 +69,14 @@ typedef struct httpconn_info_t {
 	struct evhttp_request *ev_req;
 	char request_info[1024];
 } httpconn_info_t;
+
+int util_set_linger(int fd, int onoff, int linger)
+{           
+    struct linger l = { .l_linger = linger, .l_onoff = onoff};
+    int res = setsockopt(fd, SOL_SOCKET, SO_LINGER, &l, sizeof(l));
+        
+    return res;
+}  
 
 void check_proc_alive(evutil_socket_t fd, short what, void *arg)
 {
@@ -225,7 +234,7 @@ void proc_check_all_alive(element_t *elem, int *all_pod_alive)
 	}
 }
 
-static const char *http_method(enum evhttp_cmd_type type)
+static const char *http_method_str(enum evhttp_cmd_type type)
 {   
 	const char *method;
 
@@ -278,7 +287,7 @@ void http_reply_common(int success, struct evhttp_request *req, int code, const 
 
     const char *uri = evhttp_request_get_uri(req);
 	fprintf(stderr, "[%s] from(%s:%d) -%s- [%s] ==> [%d:%s]\n", 
-			tm_string, req->remote_host, req->remote_port, http_method(req->type), uri, code, reason);
+			tm_string, req->remote_host, req->remote_port, http_method_str(req->type), uri, code, reason);
 
 	if (success < 0) {
 		evhttp_send_error(req, code, reason);
@@ -447,8 +456,9 @@ void http_recv_reply(struct evhttp_request *req, void *arg)
 
 	fprintf(stderr, "%s [%s] = (%d:%s)\n", 
 			http_conn->request_info, req == NULL ? "fail" : "done",
-			req == NULL ? -1 : req->response_code,
-			req == NULL ? "N/A" : req->response_code_line);
+			req == NULL ? -1 : evhttp_request_get_response_code(req),
+			req == NULL ? "N/A" : evhttp_request_get_response_code_line(req));
+
 	if (req == NULL) {
 		/* dns query fail */
 		MAIN_CTX->pod_info.peer_pod_start = -1;
@@ -457,11 +467,22 @@ void http_recv_reply(struct evhttp_request *req, void *arg)
 		MAIN_CTX->pod_info.peer_pod_start = req->response_code == 200 ? 1 : 0;
 	} else if (!strcmp(req->uri, "/ready")) {
 		MAIN_CTX->pod_info.peer_pod_ready = req->response_code == 200 ? 1 : 0;
+	} else if (!strcmp(req->uri, "/print/status")) {
+		/*- sample code [how to handle reply body] -*/
+		char buffer[256] = {0,};
+		int nread = 0;
+		while ((nread = evbuffer_remove(evhttp_request_get_input_buffer(req),
+						buffer, sizeof(buffer))) > 0) {
+			fwrite(buffer, nread, 1, stdout);
+		}
 	} else {
 		fprintf(stderr, "%s() caution unhandle uri=(%s) callback!\n", __func__, req->uri);
 	}
 	fprintf(stderr, "%s() check peer_pod_status start=(%d) ready=(%d)\n", __func__,
 			MAIN_CTX->pod_info.peer_pod_start, MAIN_CTX->pod_info.peer_pod_ready);
+
+	evhttp_connection_free(http_conn->ev_conn);
+
     free(http_conn);
 }
 
@@ -476,6 +497,7 @@ void make_http_request(main_ctx_t *MAIN_CTX,
     http_conn->ev_req = evhttp_request_new(reqcb, http_conn);
     evhttp_connection_set_timeout(http_conn->ev_conn, timeout);
     evhttp_make_request(http_conn->ev_conn, http_conn->ev_req, cmd, path);
+	evhttp_connection_free_on_completion(http_conn->ev_conn);
 
 	sprintf(http_conn->request_info, "http://%s:%d%s", svr_addr, svr_port, path);
 }
@@ -496,23 +518,9 @@ void main_check_peer_pod(evutil_socket_t fd, short what, void *arg)
 	(void)what;
 	main_ctx_t *MAIN_CTX = (main_ctx_t *)arg;
 
-	/* check peer info */
-	char fl_assoc_conf[1024] = {0,};
-	const char *env_ivhome = getenv("IV_HOME");
-	sprintf(fl_assoc_conf, "%s/data/associate_config", env_ivhome == NULL ? "" : env_ivhome);
-
-	/* check peerip exist */
-	char peer_pod_ip[1024 ] = {0,};
-	int chk_exist = conflib_getNthTokenInFileSection(fl_assoc_conf, 
-			"[ASSOCIATE_SYSTEMS]", MAIN_CTX->pod_info.peer_mp_name, 6, peer_pod_ip);
-	if (chk_exist < 0 || inet_addr(peer_pod_ip) < 0) {
-		fprintf(stderr, "%s() peer check [%s:%s] error!\n", __func__, fl_assoc_conf, MAIN_CTX->pod_info.peer_mp_name);
-		return;
-	}
-
 	/* check peer alive */
-	make_http_request(MAIN_CTX, peer_pod_ip, K8SMSG_HTTP_LISTEN, EVHTTP_REQ_GET, "/start", 1, http_recv_reply);
-	make_http_request(MAIN_CTX, peer_pod_ip, K8SMSG_HTTP_LISTEN, EVHTTP_REQ_GET, "/ready", 1, http_recv_reply);
+	make_http_request(MAIN_CTX, MAIN_CTX->pod_info.peer_pod_url, K8SMSG_HTTP_LISTEN, EVHTTP_REQ_GET, "/start", 1, http_recv_reply);
+	make_http_request(MAIN_CTX, MAIN_CTX->pod_info.peer_pod_url, K8SMSG_HTTP_LISTEN, EVHTTP_REQ_GET, "/ready", 1, http_recv_reply);
 }
 
 int main_init_getenv(main_ctx_t *MAIN_CTX)
@@ -524,23 +532,37 @@ int main_init_getenv(main_ctx_t *MAIN_CTX)
 	} else {
 		MAIN_CTX->pod_info.my_pod_name = strdup(getenv("MY_POD_NAME"));
 	}
-	/* get mp name seed (vGMLC_FEP) */
-	char mp_name[1024] = {0,};
-	if (fopen_read("/label_conf/name", mp_name, 1024) == NULL) {
-		fprintf(stderr, "%s() can't read file[/label_conf/name]!\n", __func__);
+	/* get pod service name */
+	if (getenv("MY_SERVICE_NAME") == NULL) {
+		fprintf(stderr, "%s() can't find env(MY_SERVICE_NAME)!\n", __func__);
 		return -1;
+	} else {
+		MAIN_CTX->pod_info.my_service_name = strdup(getenv("MY_SERVICE_NAME"));
 	}
-	/* create mp name vGMLC_FEP + _01 (suffix + 1) */
-	char *index_str = strrchr(MAIN_CTX->pod_info.my_pod_name, '-');
-	int my_mp_index = atoi(index_str + 1);
-	int peer_mp_index = my_mp_index % 2 == 0 ? my_mp_index + 1 : my_mp_index - 1;
-	sprintf(MAIN_CTX->pod_info.my_mp_name, "%s_%02d", mp_name, my_mp_index + 1);
-	sprintf(MAIN_CTX->pod_info.peer_mp_name, "%s_%02d", mp_name, peer_mp_index + 1);
+	/* get pod namespace name */
+	if (getenv("MY_POD_NAMESPACE") == NULL) {
+		fprintf(stderr, "%s() can't find env(MY_POD_NAMESPACE)!\n", __func__);
+		return -1;
+	} else {
+		MAIN_CTX->pod_info.my_pod_namespace = strdup(getenv("MY_POD_NAMESPACE"));
+	}
 
-	fprintf(stderr, "%s() check my_pod_name=(%s) my_mp_name=(%s) peer_mp_name=(%s)\n",
-			__func__, MAIN_CTX->pod_info.my_pod_name,
-			MAIN_CTX->pod_info.my_mp_name,
-			MAIN_CTX->pod_info.peer_mp_name);
+	/* create peer pod name & url */
+	char temp_pod_name[1024] = {0,};
+	sprintf(temp_pod_name, "%s", MAIN_CTX->pod_info.my_pod_name);
+	char *index_str = strrchr(temp_pod_name, '-');
+	int index = atoi(index_str + 1);
+	index = index % 2 == 0 ? index + 1 : index - 1;
+	index_str[1] = '\0';
+	sprintf(MAIN_CTX->pod_info.peer_pod_url, "%s%d.%s.%s.svc.cluster.local", 
+			temp_pod_name, index, MAIN_CTX->pod_info.my_service_name, MAIN_CTX->pod_info.my_pod_namespace);
+
+	fprintf(stderr, "%s() get pod_name(%s) service_name(%s) name_space(%s)\n  peer_pod_url[%s]\n",
+			__func__, 
+			MAIN_CTX->pod_info.my_pod_name, 
+			MAIN_CTX->pod_info.my_service_name, 
+			MAIN_CTX->pod_info.my_pod_namespace,
+			MAIN_CTX->pod_info.peer_pod_url);
 
 	return 0;
 }
@@ -554,13 +576,22 @@ int main_init_httpserver(main_ctx_t *MAIN_CTX)
 	evhttp_set_cb(MAIN_CTX->http_server, "/ready", http_reply_pod_ready, MAIN_CTX); 
 	evhttp_set_cb(MAIN_CTX->http_server, "/print/status", http_print_pod_status, MAIN_CTX); 
 	evhttp_set_gencb (MAIN_CTX->http_server, http_reply_default, MAIN_CTX);
-	if (evhttp_bind_socket (MAIN_CTX->http_server, "0.0.0.0", K8SMSG_HTTP_LISTEN) != 0) {
+	
+	/* start listen */
+	struct evhttp_bound_socket *server_sock = evhttp_bind_socket_with_handle(MAIN_CTX->http_server, "0.0.0.0", K8SMSG_HTTP_LISTEN);
+	if (server_sock == NULL) {
 		fprintf(stderr, "%s() fail to make http_server listen=[0.0.0.0:%d]!\n", __func__, K8SMSG_HTTP_LISTEN);
 		return -1;
 	} else {
 		fprintf(stderr, "%s() start http_server listen=[0.0.0.0:%d]!\n", __func__, K8SMSG_HTTP_LISTEN);
-		return 0;
 	}
+
+	/* for eliminate close- TIME_WAIT */
+	int server_fd = evhttp_bound_socket_get_fd(server_sock);
+	struct linger l = { .l_linger = 0, .l_onoff = 1};
+	setsockopt(server_fd, SOL_SOCKET, SO_LINGER, &l, sizeof(l));
+
+	return 0;
 }
 
 int main_initialize(main_ctx_t *MAIN_CTX)

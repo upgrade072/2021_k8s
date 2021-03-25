@@ -21,7 +21,6 @@ cd libevent-${VERSION}
 
 ./configure \
     --prefix=${ROOTDIR}/build \
-    --disable-openssl \
     --enable-static \
     --disable-shared \
     CFLAGS="$(CFLAGS) -I${ROOTDIR}/build/include" \

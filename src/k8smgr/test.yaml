@@ -1,8 +1,8 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
+  namespace: ariel
   name: config-data-dir
-  namespace: default
 data:
   sysconfig: |
     [GENERAL]
@@ -27,17 +27,20 @@ data:
 apiVersion: v1
 kind: Service
 metadata:
+  namespace: ariel
   name: k8s-svc-k8smgr
   labels:
     app: k8s-app-k8smgr
 spec:
   clusterIP: None
+  publishNotReadyAddresses: true
   selector:
     app: k8s-app-k8smgr
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
+  namespace: ariel
   name: k8s-stateful-k8smgr
 spec:
   selector:
@@ -49,26 +52,12 @@ spec:
     metadata:
       labels:
         app: k8s-app-k8smgr
-        name: MP
-        type: FEP
-        group: K8S_TEST
+        service: k8s-svc-k8smgr
     spec:
       volumes:
       - name: tmp-sysconfig
         configMap:
           name: config-data-dir
-      - name: label-conf
-        downwardAPI:
-          items:
-            - path: name
-              fieldRef:
-                fieldPath: metadata.labels['name']
-            - path: type
-              fieldRef:
-                fieldPath: metadata.labels['type']
-            - path: group
-              fieldRef:
-                fieldPath: metadata.labels['group']
       - name: shared-data
         emptyDir: {}
       initContainers:
@@ -82,43 +71,10 @@ spec:
               mountPath: "/data"
           command: ["/bin/sh", "-c", "cp /tmp/data/* /data"]
       containers:
-        - name: topo
-          image: 192.168.70.143:5000/topo:1.0
-          imagePullPolicy: Always
-          volumeMounts:
-            - name: label-conf
-              mountPath: "/label_conf"
-            - name: shared-data
-              mountPath: "/data"
-          env:
-            - name: MY_NODE_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: spec.nodeName
-            - name: MY_POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: MY_POD_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.podIP
-            - name: MY_NODE_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.hostIP
-            - name: EMS_TOPO_ADDR
-              valueFrom:
-                configMapKeyRef:
-                  name: config-data-dir
-                  key: EMS_TOPO_ADDR
-          command: ["/topo"]
         - name: k8smgr
           image: 192.168.70.143:5000/k8smgr:1.0
           imagePullPolicy: Always
           volumeMounts:
-            - name: label-conf
-              mountPath: "/label_conf"
             - name: shared-data
               mountPath: "/data"
           env:
@@ -128,6 +84,14 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: MY_POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: MY_SERVICE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['service']
           startupProbe:
             initialDelaySeconds: 5
             periodSeconds: 1
