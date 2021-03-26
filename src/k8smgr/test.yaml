@@ -22,7 +22,7 @@ data:
   EMS_TOPO_ADDR: 192.168.70.143:8000
 
   # AA (All Active) AS (Active-Standby) SA (Standby-Active)
-  AS_MODE: AA
+  AS_MODE: AS
 ---
 apiVersion: v1
 kind: Service
@@ -60,6 +60,9 @@ spec:
           name: config-data-dir
       - name: shared-data
         emptyDir: {}
+      - name: ariel-acc-token
+        secret:
+          secretName: ariel-secret
       initContainers:
         - name: init-container
           image: 192.168.70.143:5000/busybox:1.0
@@ -77,6 +80,8 @@ spec:
           volumeMounts:
             - name: shared-data
               mountPath: "/data"
+            - name: ariel-acc-token
+              mountPath: "/k8s/secret"
           env:
             - name: IV_HOME
               value: "/"
@@ -84,10 +89,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: MY_POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
             - name: MY_SERVICE_NAME
               valueFrom:
                 fieldRef:

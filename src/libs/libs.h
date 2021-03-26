@@ -23,3 +23,4 @@ void    rem_element(element_t *item);
 int     popen_cmd(const char *cmd, char *buf, int len);
 void    fopen_cmd(const char *path, const char *banner, const char *buffer);
 char    *fopen_read(const char *path, char *buffer, int size);
+char    *fopen_read_malloc(const char *path);

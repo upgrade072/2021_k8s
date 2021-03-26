@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <event.h>
+#include <event2/bufferevent_ssl.h>
+#include <event2/bufferevent.h>
 #include <event2/event.h>
 #include <event2/thread.h>
 #include <event2/http.h>
@@ -9,6 +11,9 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include <openssl/rand.h>
 
 /* from ARIEL */
 #include <conflib.h>
@@ -20,6 +25,8 @@
 
 #define K8SMGR_HANG_INTVL	3 /* check x 3 ~ interval 3 = 9 sec */
 #define K8SMSG_HTTP_LISTEN	32768
+#define K8S_SYS_NAMESPACE	"/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+#define LABEL_POD_STATUS	"{ \"metadata\": { \"labels\": { \"status\": \"%s\" } } }"
 
 extern char *__progname;
 
@@ -43,11 +50,20 @@ typedef struct pod_info_t {
 	char peer_pod_url[1024];
 	int peer_pod_start;
 	int peer_pod_ready;
+
+	char *conf_as_mode;
+	int conf_my_side;
+
+	char *k8s_service_host;
+	int k8s_service_port;
+	char *k8s_acc_token;
+	char *k8s_acc_token_bearer;
 } pod_info_t;
 
 typedef struct main_ctx_t {
 	/* my ready status */
 	int force_not_ready;
+	int my_sys_status;
 
 	/* pod env & other */
 	pod_info_t pod_info;
@@ -61,13 +77,19 @@ typedef struct main_ctx_t {
 	/* for main loop */
 	struct event_base *evbase_main;
 	struct evdns_base *dnsbase;
+
+	SSL_CTX *ssl_ctx;
 } main_ctx_t;
 
 typedef struct httpconn_info_t {
 	main_ctx_t *MAIN_CTX;
+	char request_info[1024];
+	/* http */
 	struct evhttp_connection *ev_conn;
 	struct evhttp_request *ev_req;
-	char request_info[1024];
+	/* ++ https */
+	SSL *ssl;
+	struct bufferevent *bev;
 } httpconn_info_t;
 
 int util_set_linger(int fd, int onoff, int linger)
@@ -447,10 +469,8 @@ done:
         free(decoded_path);
 }
 
-
 void http_recv_reply(struct evhttp_request *req, void *arg)
 {
-	/* caution! req may null if timeouted! */
     httpconn_info_t *http_conn = (httpconn_info_t *)arg;
 	main_ctx_t *MAIN_CTX = http_conn->MAIN_CTX;
 
@@ -467,21 +487,38 @@ void http_recv_reply(struct evhttp_request *req, void *arg)
 		MAIN_CTX->pod_info.peer_pod_start = req->response_code == 200 ? 1 : 0;
 	} else if (!strcmp(req->uri, "/ready")) {
 		MAIN_CTX->pod_info.peer_pod_ready = req->response_code == 200 ? 1 : 0;
-	} else if (!strcmp(req->uri, "/print/status")) {
-		/*- sample code [how to handle reply body] -*/
+	} else {
+		fprintf(stderr, "%s() caution unhandle uri=(%s) callback!\n", __func__, req->uri);
 		char buffer[256] = {0,};
 		int nread = 0;
 		while ((nread = evbuffer_remove(evhttp_request_get_input_buffer(req),
 						buffer, sizeof(buffer))) > 0) {
 			fwrite(buffer, nread, 1, stdout);
 		}
-	} else {
-		fprintf(stderr, "%s() caution unhandle uri=(%s) callback!\n", __func__, req->uri);
 	}
 	fprintf(stderr, "%s() check peer_pod_status start=(%d) ready=(%d)\n", __func__,
 			MAIN_CTX->pod_info.peer_pod_start, MAIN_CTX->pod_info.peer_pod_ready);
 
 	evhttp_connection_free(http_conn->ev_conn);
+
+    free(http_conn);
+}
+
+void https_recv_reply(struct evhttp_request *req, void *arg)
+{
+    httpconn_info_t *http_conn = (httpconn_info_t *)arg;
+
+	fprintf(stderr, "%s [%s] = (%d:%s)\n", 
+			http_conn->request_info, req == NULL ? "fail" : "done",
+			req == NULL ? -1 : evhttp_request_get_response_code(req),
+			req == NULL ? "N/A" : evhttp_request_get_response_code_line(req));
+
+	if (req == NULL) {
+	} else {
+	}
+
+	/* for SSL use, don't free evconn it will auto released! */
+	//evhttp_connection_free(http_conn->ev_conn);
 
     free(http_conn);
 }
@@ -493,23 +530,68 @@ void make_http_request(main_ctx_t *MAIN_CTX,
 {
     httpconn_info_t *http_conn = calloc(1, sizeof(httpconn_info_t));
     http_conn->MAIN_CTX = MAIN_CTX; /* for refer */
+	sprintf(http_conn->request_info, "http://%s:%d%s", svr_addr, svr_port, path);
     http_conn->ev_conn = evhttp_connection_base_new(MAIN_CTX->evbase_main, MAIN_CTX->dnsbase, svr_addr, svr_port);
     http_conn->ev_req = evhttp_request_new(reqcb, http_conn);
     evhttp_connection_set_timeout(http_conn->ev_conn, timeout);
     evhttp_make_request(http_conn->ev_conn, http_conn->ev_req, cmd, path);
 	evhttp_connection_free_on_completion(http_conn->ev_conn);
 
-	sprintf(http_conn->request_info, "http://%s:%d%s", svr_addr, svr_port, path);
+}
+
+void make_https_request_for_k8s(main_ctx_t *MAIN_CTX,
+        const char *svr_addr, int svr_port,
+        enum evhttp_cmd_type cmd, const char *path, int timeout,
+        void (*reqcb)(struct evhttp_request *, void *), const char *header, const char *header_content, const char *body)
+{
+    httpconn_info_t *http_conn = calloc(1, sizeof(httpconn_info_t));
+    http_conn->MAIN_CTX = MAIN_CTX; /* for refer */
+	sprintf(http_conn->request_info, "https://%s:%d%s", svr_addr, svr_port, path);
+
+	http_conn->ssl = SSL_new(MAIN_CTX->ssl_ctx);
+	http_conn->bev = bufferevent_openssl_socket_new(MAIN_CTX->evbase_main, -1, http_conn->ssl,
+			BUFFEREVENT_SSL_CONNECTING,
+			BEV_OPT_CLOSE_ON_FREE|BEV_OPT_DEFER_CALLBACKS);
+	bufferevent_openssl_set_allow_dirty_shutdown(http_conn->bev, 1);
+
+	http_conn->ev_conn = 
+		evhttp_connection_base_bufferevent_new(MAIN_CTX->evbase_main, MAIN_CTX->dnsbase, http_conn->bev, svr_addr, svr_port);
+	http_conn->ev_req = evhttp_request_new(reqcb, http_conn);
+	evhttp_connection_set_timeout(http_conn->ev_conn, timeout);
+
+	struct evkeyvalq *output_headers = evhttp_request_get_output_headers(http_conn->ev_req);
+	evhttp_add_header(output_headers, "Authorization", MAIN_CTX->pod_info.k8s_acc_token_bearer);
+	evhttp_add_header(output_headers, "Host", svr_addr);
+	evhttp_add_header(output_headers, "Connection", "close");
+	if (header != NULL && header_content != NULL) {
+		evhttp_add_header(output_headers, header, header_content);
+	}
+	if (body != NULL) {
+		struct evbuffer *output_buffer =evhttp_request_get_output_buffer(http_conn->ev_req);
+		int body_len = strlen(body);
+		char buf[1024] = {0,};
+		evbuffer_add(output_buffer, body, body_len);
+		evutil_snprintf(buf, sizeof(buf)-1, "%lu", (unsigned long)body_len);
+		evhttp_add_header(output_headers, "Content-Length", buf);
+	}
+
+	evhttp_make_request(http_conn->ev_conn, http_conn->ev_req, cmd, path);
+	evhttp_connection_free_on_completion(http_conn->ev_conn);
 }
 
 void main_tick(evutil_socket_t fd, short what, void *arg)
 {
 	(void)fd; 
 	(void)what;
-	(void)arg;
+	main_ctx_t *MAIN_CTX = (main_ctx_t *)arg;
 
 	/* I'm Alive */
 	keepalivelib_increase();
+
+	/* set my status */
+	int all_pod_alive = 1;
+	list_element(MAIN_CTX->proc_list, proc_check_all_alive, &all_pod_alive);
+	MAIN_CTX->my_sys_status = all_pod_alive > 0 ? 1 : 0;
 }
 
 void main_check_peer_pod(evutil_socket_t fd, short what, void *arg)
@@ -521,6 +603,47 @@ void main_check_peer_pod(evutil_socket_t fd, short what, void *arg)
 	/* check peer alive */
 	make_http_request(MAIN_CTX, MAIN_CTX->pod_info.peer_pod_url, K8SMSG_HTTP_LISTEN, EVHTTP_REQ_GET, "/start", 1, http_recv_reply);
 	make_http_request(MAIN_CTX, MAIN_CTX->pod_info.peer_pod_url, K8SMSG_HTTP_LISTEN, EVHTTP_REQ_GET, "/ready", 1, http_recv_reply);
+}
+
+void k8s_api_patch_pod_status(main_ctx_t *MAIN_CTX, const char *status)
+{
+	/* k8s test */
+	char body[1024] = {0,};
+	sprintf(body, LABEL_POD_STATUS, status);
+
+	char path[1024] = {0,};
+	sprintf(path, "/api/v1/namespaces/%s/pods/%s", MAIN_CTX->pod_info.my_pod_namespace, MAIN_CTX->pod_info.my_pod_name);
+	make_https_request_for_k8s(MAIN_CTX, MAIN_CTX->pod_info.k8s_service_host, MAIN_CTX->pod_info.k8s_service_port, 
+			EVHTTP_REQ_PATCH, path, 1, 
+			https_recv_reply, "Content-Type", "application/merge-patch+json", body);
+}
+
+void main_update_pod_label(evutil_socket_t fd, short what, void *arg)
+{
+	(void)fd; 
+	(void)what;
+	main_ctx_t *MAIN_CTX = (main_ctx_t *)arg;
+
+	const char *status = NULL;
+	char status_mode = MAIN_CTX->pod_info.conf_as_mode[MAIN_CTX->pod_info.conf_my_side];
+	if (status_mode == 'A') {
+		if (MAIN_CTX->force_not_ready == 1) {
+			status = "force_not_ready";
+		} else if (MAIN_CTX->my_sys_status == 1) {
+			status = "active";
+		} else {
+			status = "fail_proc";
+		}
+	} else { /* 'S' */
+		if (MAIN_CTX->pod_info.peer_pod_start > 0 && MAIN_CTX->pod_info.peer_pod_ready) {
+			status = "standby";
+		} else if (MAIN_CTX->my_sys_status == 1) {
+			status = "active";
+		} else {
+			status = "fail_proc";
+		}
+	}
+	k8s_api_patch_pod_status(MAIN_CTX, status);
 }
 
 int main_init_getenv(main_ctx_t *MAIN_CTX)
@@ -540,18 +663,16 @@ int main_init_getenv(main_ctx_t *MAIN_CTX)
 		MAIN_CTX->pod_info.my_service_name = strdup(getenv("MY_SERVICE_NAME"));
 	}
 	/* get pod namespace name */
-	if (getenv("MY_POD_NAMESPACE") == NULL) {
-		fprintf(stderr, "%s() can't find env(MY_POD_NAMESPACE)!\n", __func__);
+	if ((MAIN_CTX->pod_info.my_pod_namespace = fopen_read_malloc(K8S_SYS_NAMESPACE)) == NULL) {
+		fprintf(stderr, "%s() can't check file(%s)!\n", __func__, K8S_SYS_NAMESPACE);
 		return -1;
-	} else {
-		MAIN_CTX->pod_info.my_pod_namespace = strdup(getenv("MY_POD_NAMESPACE"));
 	}
 
 	/* create peer pod name & url */
 	char temp_pod_name[1024] = {0,};
 	sprintf(temp_pod_name, "%s", MAIN_CTX->pod_info.my_pod_name);
 	char *index_str = strrchr(temp_pod_name, '-');
-	int index = atoi(index_str + 1);
+	int index = MAIN_CTX->pod_info.conf_my_side = atoi(index_str + 1);
 	index = index % 2 == 0 ? index + 1 : index - 1;
 	index_str[1] = '\0';
 	sprintf(MAIN_CTX->pod_info.peer_pod_url, "%s%d.%s.%s.svc.cluster.local", 
@@ -563,6 +684,45 @@ int main_init_getenv(main_ctx_t *MAIN_CTX)
 			MAIN_CTX->pod_info.my_service_name, 
 			MAIN_CTX->pod_info.my_pod_namespace,
 			MAIN_CTX->pod_info.peer_pod_url);
+
+	/* check AS mode & decision my side */
+	if ((MAIN_CTX->pod_info.conf_as_mode = fopen_read_malloc("/data/AS_MODE")) == NULL) {
+		fprintf(stderr, "%s() can't check file(%s)! force set to=(AA)\n", __func__, "/data/AS_MODED");
+		MAIN_CTX->pod_info.conf_as_mode = strdup("AA");
+	}
+	char status_mode = MAIN_CTX->pod_info.conf_as_mode[MAIN_CTX->pod_info.conf_my_side];
+	fprintf(stderr, "%s() check AS_MODE=(%s) my_side=(%d:%c) starting!\n", __func__,
+			MAIN_CTX->pod_info.conf_as_mode, MAIN_CTX->pod_info.conf_my_side, status_mode);
+
+	/* get k8s host env */
+	if (getenv("KUBERNETES_SERVICE_HOST") == NULL) {
+		fprintf(stderr, "%s() can't find env(KUBERNETES_SERVICE_HOST)!\n", __func__);
+		return -1;
+	} else {
+		MAIN_CTX->pod_info.k8s_service_host = strdup(getenv("KUBERNETES_SERVICE_HOST"));
+	}
+	if (getenv("KUBERNETES_SERVICE_PORT") == NULL) {
+		fprintf(stderr, "%s() can't find env(KUBERNETES_SERVICE_PORT)!\n", __func__);
+		return -1;
+	} else {
+		MAIN_CTX->pod_info.k8s_service_port = atoi(getenv("KUBERNETES_SERVICE_PORT"));
+	}
+	fprintf(stderr, "%s() get k8s_host:port=(%s:%d)\n", __func__, 
+			MAIN_CTX->pod_info.k8s_service_host,
+			MAIN_CTX->pod_info.k8s_service_port);
+
+	/* get token for api */
+	if ((MAIN_CTX->pod_info.k8s_acc_token = fopen_read_malloc("/k8s/secret/token")) == NULL) {
+		fprintf(stderr, "%s() can't check file(%s)!\n", __func__, "/k8s/secret/token");
+		return -1;
+	} else {
+		MAIN_CTX->pod_info.k8s_acc_token_bearer = calloc(1, strlen(MAIN_CTX->pod_info.k8s_acc_token) + 128);
+		sprintf(MAIN_CTX->pod_info.k8s_acc_token_bearer, "Bearer %s", MAIN_CTX->pod_info.k8s_acc_token);
+		fprintf(stderr, "%s() get k8s_token_bearer=[%s]\n", __func__, MAIN_CTX->pod_info.k8s_acc_token_bearer);
+	}
+
+	/* At Last update my status at pod label */
+	k8s_api_patch_pod_status(MAIN_CTX, status_mode == 'A' ? "active":"standby");
 
 	return 0;
 }
@@ -600,6 +760,7 @@ int main_initialize(main_ctx_t *MAIN_CTX)
 	evthread_use_pthreads();
 	MAIN_CTX->evbase_main = event_base_new();
 	MAIN_CTX->dnsbase = evdns_base_new(MAIN_CTX->evbase_main, 1);
+	MAIN_CTX->ssl_ctx = SSL_CTX_new(SSLv23_method());
 
 	/* check sysconfig exist */
 	if (keepalivelib_init(__progname) < 0) {
@@ -634,10 +795,15 @@ int main_initialize(main_ctx_t *MAIN_CTX)
 		return -1;
 	}
 	/* tick for remote condition check */
-	struct timeval two_sec = {2, 0};
 	struct event *ev_tick_2 = event_new(MAIN_CTX->evbase_main, -1, EV_PERSIST, main_check_peer_pod, MAIN_CTX);
-	if (event_add(ev_tick_2, &two_sec) == -1) {
+	if (event_add(ev_tick_2, &one_sec) == -1) {
 		fprintf(stderr, "%s() fail to create main_tick_2!\n", __func__);
+		return -1;
+	}
+	/* tick for update my label status */
+	struct event *ev_tick_3 = event_new(MAIN_CTX->evbase_main, -1, EV_PERSIST, main_update_pod_label, MAIN_CTX);
+	if (event_add(ev_tick_3, &one_sec) == -1) {
+		fprintf(stderr, "%s() fail to create main_tick_3!\n", __func__);
 		return -1;
 	}
 

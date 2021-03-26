@@ -41,3 +41,21 @@ char *fopen_read(const char *path, char *buffer, int size)
 	fclose(fp);
 	return res;
 }
+
+char *fopen_read_malloc(const char *path)
+{
+    FILE *fp = fopen(path, "r");
+    if (fp == NULL) {
+        return NULL;
+    }
+    fseek(fp, 0, SEEK_END);
+    int size = ftell(fp);
+    char *ptr = calloc(1, size + 1);
+
+    fseek(fp, 0, SEEK_SET);
+    fread(ptr, size, 1, fp);
+    strtok(ptr, "\n");
+
+    fclose(fp);
+    return ptr;
+}
