@@ -404,6 +404,9 @@ int getHostFirstIpByNameTimeOut(char *ip, char *hostName, char *nameServer, int 
             strcpy(ip, inet_ntoa(a.sin_addr));
             ret = 0;
         }
+        else {
+            ret = -1;
+        }
         clearParseResult(answers, auth, addit);
     }
     return ret;
