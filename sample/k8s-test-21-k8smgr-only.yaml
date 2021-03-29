@@ -1,8 +1,8 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  namespace: ariel
   name: config-data-dir
+  namespace: default
 data:
   sysconfig: |
     [GENERAL]
@@ -18,17 +18,15 @@ data:
 
     [SHARED_MEMORY_KEY]
     SHM_KEEPALIVE       = 0x93000
-    SHM_SYS_INFO        = 0x93001
 
   EMS_TOPO_ADDR: 192.168.70.143:8000
 
   # AA (All Active) AS (Active-Standby) SA (Standby-Active)
-  AS_MODE: AS
+  AS_MODE: AA
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  namespace: ariel
   name: k8s-svc-k8smgr
   labels:
     app: k8s-app-k8smgr
@@ -38,28 +36,9 @@ spec:
   selector:
     app: k8s-app-k8smgr
 ---
-apiVersion: v1
-kind: Service
-metadata:
-  namespace: ariel
-  name: k8s-svc-active-test
-  labels:
-    app: k8s-app-k8smgr
-spec:
-  clusterIP: "" # it means any of CIDR ip address
-  publishNotReadyAddresses: true
-  selector:
-    app: k8s-app-k8smgr
-    status: active
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 9376
----
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  namespace: ariel
   name: k8s-stateful-k8smgr
 spec:
   selector:
@@ -79,9 +58,6 @@ spec:
           name: config-data-dir
       - name: shared-data
         emptyDir: {}
-      - name: ariel-acc-token
-        secret:
-          secretName: ariel-secret
       initContainers:
         - name: init-container
           image: 192.168.70.143:5000/busybox:1.0
@@ -99,8 +75,6 @@ spec:
           volumeMounts:
             - name: shared-data
               mountPath: "/data"
-            - name: ariel-acc-token
-              mountPath: "/k8s/secret"
           env:
             - name: IV_HOME
               value: "/"
@@ -108,10 +82,26 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: MY_POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             - name: MY_SERVICE_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.labels['service']
+          startupProbe:
+            initialDelaySeconds: 5
+            periodSeconds: 1
+            httpGet:
+              path: /start
+              port: 32768
+          readinessProbe:
+            failureThreshold: 3
+            periodSeconds: 1
+            httpGet:
+              path: /ready
+              port: 32768
           livenessProbe:
             failureThreshold: 3
             periodSeconds: 1

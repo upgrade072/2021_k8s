@@ -18,6 +18,7 @@
 /* from ARIEL */
 #include <conflib.h>
 #include <keepalivelib.h>
+#include <sys_info.h>
 
 /* from build-tree */
 #include <fort.h>
@@ -499,7 +500,7 @@ void http_recv_reply(struct evhttp_request *req, void *arg)
 	fprintf(stderr, "%s() check peer_pod_status start=(%d) ready=(%d)\n", __func__,
 			MAIN_CTX->pod_info.peer_pod_start, MAIN_CTX->pod_info.peer_pod_ready);
 
-	evhttp_connection_free(http_conn->ev_conn);
+	//evhttp_connection_free(http_conn->ev_conn);
 
     free(http_conn);
 }
@@ -626,23 +627,24 @@ void main_update_pod_label(evutil_socket_t fd, short what, void *arg)
 
 	const char *status = NULL;
 	char status_mode = MAIN_CTX->pod_info.conf_as_mode[MAIN_CTX->pod_info.conf_my_side];
-	if (status_mode == 'A') {
-		if (MAIN_CTX->force_not_ready == 1) {
-			status = "force_not_ready";
-		} else if (MAIN_CTX->my_sys_status == 1) {
-			status = "active";
-		} else {
-			status = "fail_proc";
-		}
-	} else { /* 'S' */
+
+	if (MAIN_CTX->force_not_ready == 1) {
+		status = "force_not_ready";
+	} else if (MAIN_CTX->my_sys_status != 1) {
+		status = "proc_failed";
+	} else if (status_mode == 'A') {
+		status = "active";
+	} else {
 		if (MAIN_CTX->pod_info.peer_pod_start > 0 && MAIN_CTX->pod_info.peer_pod_ready) {
 			status = "standby";
-		} else if (MAIN_CTX->my_sys_status == 1) {
-			status = "active";
 		} else {
-			status = "fail_proc";
+			status = "active";
 		}
 	}
+	/* update sys_shm/mode */
+	sys_ha_set_mode(!strcmp(status, "active") ? MODE_ACTIVE : MODE_STANDBY);
+
+	/* notify to k8s service selector */
 	k8s_api_patch_pod_status(MAIN_CTX, status);
 }
 
@@ -778,6 +780,13 @@ int main_initialize(main_ctx_t *MAIN_CTX)
 	/* create http server */
 	if (main_init_httpserver(MAIN_CTX) < 0) {
 		return -1;
+	}
+
+	/* create HA info for process */
+	if (sys_init_shm(NULL) == NULL) {
+		return -1;
+	} else {
+		sys_ha_set_enable();
 	}
 
 	/* create process check status list */
