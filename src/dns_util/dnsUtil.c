@@ -396,7 +396,7 @@ int getHostFirstIpByNameTimeOut(char *ip, char *hostName, char *nameServer, int 
         parseDnsResult(answers, auth, addit, &buf[0], (char*)qname);
         /* dns = (struct DNS_HEADER*)buf; */
         /* printf("\nAnswer Records : %d \n" , ntohs(dns->ans_count) ); */
-        if(ntohs(answers[i].resource->type) == T_A) {
+        if(answers[i].resource && (ntohs(answers[i].resource->type) == T_A)) {
             long *p;
             p=(long*)answers[i].rdata;
             a.sin_addr.s_addr=(*p); //working without ntohl
