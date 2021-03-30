@@ -72,6 +72,7 @@ spec:
       labels:
         app: k8s-app-k8smgr
         service: k8s-svc-k8smgr
+        statefulset: k8s-stateful-k8smgr
     spec:
       volumes:
       - name: tmp-sysconfig

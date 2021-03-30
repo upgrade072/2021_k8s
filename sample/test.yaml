@@ -1,20 +1,10 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  namespace: ariel
-  name: k8s-test
+  name: k8s-busybox-bash
 spec:
-  nodeSelector:
-    kubernetes.io/hostname: k8s-vm.1
-  volumes:
-  - name: ariel-secret
-    secret:
-      secretName: ariel-secret
   containers:
     - name: test-container-0
-      image: 192.168.70.143:5000/busybox:1.0
+      image: bgruening/busybox-bash:latest
       imagePullPolicy: Always
-      volumeMounts:
-      - name: ariel-secret
-        mountPath: "/k8s/secret"
       command: ["sh", "-c", "tail -f /dev/null"]
