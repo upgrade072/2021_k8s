@@ -26,12 +26,12 @@ spec:
   selector:
     app: emgc
     status: active
-  ports:  # TODO assign more ports
-    - name: radius-authif-udp
+  ports:
+    - name: radius-access-udp
       protocol: UDP
       port: 1812
       targetPort: 1812
-    - name: radius-acntif-udp
+    - name: radius-account-udp
       protocol: UDP
       port: 1813
       targetPort: 1813
@@ -122,30 +122,6 @@ spec:
                   fieldPath: metadata.labels['statefulset']
           command: ["/bin/sh", "-c", "/init_script/start.sh"]
       containers:
-        - name: test
-          image: 192.168.70.143:5000/busybox:1.0
-          imagePullPolicy: Always
-          volumeMounts:
-            - name: shared-bin
-              mountPath: "/bin"
-            - name: shared-data
-              mountPath: "/data"
-            - name: ariel-acc-token
-              mountPath: "/k8s/secret"
-            - name: replace-script
-              mountPath: "/replace_script"
-            - name: emgc-init-script
-              mountPath: "/init_script"
-          env:
-            - name: MY_POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: MY_STATEFUL_SET
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.labels['statefulset']
-          command: ["sh", "-c", "tail -f /dev/null"]
         - name: altibase
           image: 192.168.70.143:5000/altibase_7.1.0:1.0
           imagePullPolicy: IfNotPresent
@@ -172,6 +148,28 @@ spec:
             periodSeconds: 1
             tcpSocket:
               port: 20300
+        - name: authif
+          image: 192.168.70.143:5000/authif:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-data
+            mountPath: "/data"
+          - name: shared-bin
+            mountPath: "/bin"
+          - name: emgc-pvc
+            subPathExpr: trc
+            mountPath: /home/altibase/altibase_home/trc
+          - name: nfs-vol
+            subPathExpr: $(MY_POD_NAME)/CONFIG
+            mountPath: /data/CONFIG
+          env:
+            - name: ALTIBASE_HOME
+              value: "/home/altibase/altibase_home"
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          command: ["/bin/sh", "-c", "source /data/k8s.env;/entry.sh;/authif"]
         - name: acntif
           image: 192.168.70.143:5000/acntif:1.0
           imagePullPolicy: Always
@@ -194,8 +192,8 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
           command: ["/bin/sh", "-c", "source /data/k8s.env;/acntif"]
-        - name: authif
-          image: 192.168.70.143:5000/authif:1.0
+        - name: dbm
+          image: 192.168.70.143:5000/dbm:1.0
           imagePullPolicy: Always
           volumeMounts:
           - name: shared-data
@@ -215,9 +213,4 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-          livenessProbe:
-            failureThreshold: 10
-            periodSeconds: 1
-            udpSocket:
-              port: 1812
-          command: ["/bin/sh", "-c", "source /data/k8s.env;/entry.sh;/authif"]
+          command: ["/bin/sh", "-c", "source /data/k8s.env;/dbm"]
