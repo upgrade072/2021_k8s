@@ -58,26 +58,33 @@ copy_libs() {\
 	\cp $2 ./$1
 }
 
+process_bins() {\
+    ldd $1 | while read -r line
+    do
+        line_cnt=`wc -w <<< $line`
+        if [ "$line_cnt" = "4" ]; then
+            LIBS=`echo $line | awk '{ print $3 }'`
+            LINKS=`readlink -f ${LIBS}`
+            DIRS=`echo "${LIBS%/*}"`
+            copy_libs ${LIBS} ${LINKS} ${DIRS}
+        elif [ "$line_cnt" = "2" ]; then
+            LIBS=`echo $line | awk '{ print $1 }'`
+            LINKS=`readlink -f ${LIBS}`
+            DIRS=`echo "${LIBS%/*}"`
+            copy_libs ${LIBS} ${LINKS} ${DIRS}
+        fi
+    done
+}
+
 ### check proc-library and copy to tempdir
-ldd ./${proc_name} | while read -r line
+ls -F | grep '*$' | sed 's/*$//' | while read -r line
 do
-	line_cnt=`wc -w <<< $line`
-	if [ "$line_cnt" = "4" ]; then
-		LIBS=`echo $line | awk '{ print $3 }'`
-		LINKS=`readlink -f ${LIBS}`
-		DIRS=`echo "${LIBS%/*}"`
-		copy_libs ${LIBS} ${LINKS} ${DIRS}
-	elif [ "$line_cnt" = "2" ]; then
-		LIBS=`echo $line | awk '{ print $1 }'`
-		LINKS=`readlink -f ${LIBS}`
-		DIRS=`echo "${LIBS%/*}"`
-		copy_libs ${LIBS} ${LINKS} ${DIRS}
-	fi
+    process_bins $line
 done
 
 ### create container & set tag & push
 echo "< create container [${proc_name}:${version}]>"
-docker build --tag ${proc_name}:${version} .
+docker build --no-cache --tag ${proc_name}:${version} .
 docker tag ${proc_name}:${version} ${registry_info}/${proc_name}:${version}
 docker push ${registry_info}/${proc_name}:${version}
 

@@ -1,0 +1,223 @@
+## service for static view
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: ariel
+  name: emgc-mp-service
+  labels:
+    app: emgc
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app: emgc
+---
+## service for A/S routing
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: ariel
+  name: emgc-as-service
+  labels:
+    app: emgc
+spec:
+  clusterIP: "" # "" means any of CIDR ip address
+  publishNotReadyAddresses: true
+  selector:
+    app: emgc
+    status: active
+  ports:  # TODO assign more ports
+    - name: radius-authif-udp
+      protocol: UDP
+      port: 1812
+      targetPort: 1812
+    - name: radius-acntif-udp
+      protocol: UDP
+      port: 1813
+      targetPort: 1813
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  namespace: ariel
+  name: emgc-mp-statefulset
+spec:
+  selector:
+    matchLabels:
+      app: emgc
+  serviceName: emgc-mp-service
+  replicas: 2
+  volumeClaimTemplates:
+  - metadata:
+      name: emgc-pvc # pvc create name = emgc-pvc - [metadata.name] -0-1-2
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 2Gi
+  template:
+    metadata:
+      labels:
+        app: emgc
+        service: emgc-mp-service ## ref headless-svc.metadata.name
+        statefulset: emgc-mp-statefulset ## ref Statefulset.metadata.name
+    spec:
+      securityContext: 
+        sysctls:
+        - name: kernel.sem
+          value: "512 32000 512 4096"
+      volumes:
+      - name: tmp-sysconfig
+        configMap:
+          name: emgc-config-map-1.0
+      - name: shared-bin
+        emptyDir: {}
+      - name: shared-data
+        emptyDir: {}
+      - name: ariel-acc-token
+        secret:
+          secretName: ariel-secret
+      - name: replace-script
+        configMap:
+          name: replace-script
+          defaultMode: 0777
+      - name: emgc-init-script
+        configMap:
+          name: emgc-init-script
+          defaultMode: 0777
+      - name: nfs-vol
+        nfs:
+          server: 192.168.70.143
+          path: /nfs_data/ariel/emgc
+      initContainers:
+        - name: init-container-00
+          image: 192.168.70.143:5000/busybox:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: shared-bin
+              mountPath: "/local/bin"
+          command: ["/bin/sh", "-c", "cp /bin/* /local/bin"]
+        - name: init-container-01
+          image: 192.168.70.143:5000/busybox_bash:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: tmp-sysconfig
+              mountPath: "/tmp/data"
+            - name: shared-data
+              mountPath: "/data"
+            - name: shared-bin
+              mountPath: "/local/bin"
+            - name: replace-script
+              mountPath: "/replace_script"
+            - name: emgc-init-script
+              mountPath: "/init_script"
+          env:
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: MY_STATEFUL_SET
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['statefulset']
+          command: ["/bin/sh", "-c", "/init_script/start.sh"]
+      containers:
+        - name: test
+          image: 192.168.70.143:5000/busybox:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: shared-bin
+              mountPath: "/bin"
+            - name: shared-data
+              mountPath: "/data"
+            - name: ariel-acc-token
+              mountPath: "/k8s/secret"
+            - name: replace-script
+              mountPath: "/replace_script"
+            - name: emgc-init-script
+              mountPath: "/init_script"
+          env:
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: MY_STATEFUL_SET
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['statefulset']
+          command: ["sh", "-c", "tail -f /dev/null"]
+        - name: altibase
+          image: 192.168.70.143:5000/altibase_7.1.0:1.0
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+          - name: emgc-pvc
+            subPathExpr: dbs
+            mountPath: /home/altibase/altibase_home/dbs
+          - name: emgc-pvc
+            subPathExpr: logs
+            mountPath: /home/altibase/altibase_home/logs
+          - name: emgc-pvc
+            subPathExpr: trc
+            mountPath: /home/altibase/altibase_home/trc
+          - name: emgc-pvc
+            subPathExpr: conf
+            mountPath: /home/altibase/altibase_home/conf
+          env:
+            - name: MODE
+              value: "daemon"
+            - name: ALTIBASE_HOME
+              value: "/home/altibase/altibase_home"
+          livenessProbe:
+            failureThreshold: 10
+            periodSeconds: 1
+            tcpSocket:
+              port: 20300
+        - name: acntif
+          image: 192.168.70.143:5000/acntif:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-data
+            mountPath: "/data"
+          - name: shared-bin
+            mountPath: "/bin"
+          - name: emgc-pvc
+            subPathExpr: trc
+            mountPath: /home/altibase/altibase_home/trc
+          - name: nfs-vol
+            subPathExpr: $(MY_POD_NAME)/CONFIG
+            mountPath: /data/CONFIG
+          env:
+            - name: ALTIBASE_HOME
+              value: "/home/altibase/altibase_home"
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          command: ["/bin/sh", "-c", "source /data/k8s.env;/acntif"]
+        - name: authif
+          image: 192.168.70.143:5000/authif:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-data
+            mountPath: "/data"
+          - name: shared-bin
+            mountPath: "/bin"
+          - name: emgc-pvc
+            subPathExpr: trc
+            mountPath: /home/altibase/altibase_home/trc
+          - name: nfs-vol
+            subPathExpr: $(MY_POD_NAME)/CONFIG
+            mountPath: /data/CONFIG
+          env:
+            - name: ALTIBASE_HOME
+              value: "/home/altibase/altibase_home"
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          livenessProbe:
+            failureThreshold: 10
+            periodSeconds: 1
+            udpSocket:
+              port: 1812
+          command: ["/bin/sh", "-c", "source /data/k8s.env;/entry.sh;/authif"]

@@ -1,0 +1,43 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  namespace: ariel
+  name: emgc-pv-init-proc-1
+spec:
+  template:
+    spec:
+      volumes:
+      - name: emgc-dbms
+        persistentVolumeClaim:
+          claimName: emgc-dbms-pvc-1
+      containers:
+      - name: emgc-dbms-init
+        image: 192.168.70.143:5000/emgc_dbms:1.0
+        volumeMounts:
+        - name: emgc-dbms
+          mountPath: /data
+        command: ["/bin/sh", "-c", "cp -rf /init_data/* /data; chown -R 1000:1000 /data/*"]
+      restartPolicy: Never
+  backoffLimit: 4
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  namespace: ariel
+  name: emgc-pv-init-proc-2
+spec:
+  template:
+    spec:
+      volumes:
+      - name: emgc-dbms
+        persistentVolumeClaim:
+          claimName: emgc-dbms-pvc-2
+      containers:
+      - name: emgc-dbms-init
+        image: 192.168.70.143:5000/emgc_dbms:1.0
+        volumeMounts:
+        - name: emgc-dbms
+          mountPath: /data
+        command: ["/bin/sh", "-c", "cp -rf /init_data/* /data; chown -R 1000:1000 /data/*"]
+      restartPolicy: Never
+  backoffLimit: 4
