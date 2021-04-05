@@ -17,15 +17,19 @@ apiVersion: v1
 kind: Service
 metadata:
   namespace: ariel
-  name: emgc-as-service
+  name: emgc-as-service-udp
+  annotations:
+      metallb.universe.tf/address-pool: emgc-as-service-pool-udp
   labels:
     app: emgc
 spec:
   clusterIP: "" # "" means any of CIDR ip address
+  type: LoadBalancer
   publishNotReadyAddresses: true
   selector:
     app: emgc
-    status: active
+  #status: active
+  externalTrafficPolicy: Local
   ports:
     - name: radius-access-udp
       protocol: UDP
@@ -35,6 +39,42 @@ spec:
       protocol: UDP
       port: 1813
       targetPort: 1813
+---
+## service for A/S routing
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: ariel
+  name: emgc-as-service-tcp
+  annotations:
+      metallb.universe.tf/address-pool: emgc-as-service-pool-tcp
+  labels:
+    app: emgc
+spec:
+  clusterIP: "" # "" means any of CIDR ip address
+  type: LoadBalancer
+  publishNotReadyAddresses: true
+  selector:
+    app: emgc
+  #status: active
+  externalTrafficPolicy: Local
+  ports:
+    - name: emguib-emgu-tcp
+      protocol: TCP
+      port: 21250
+      targetPort: 21250
+    - name: restif-http-0-tcp
+      protocol: TCP
+      port: 12444
+      targetPort: 12444
+    - name: restif-http-1-tcp
+      protocol: TCP
+      port: 9401
+      targetPort: 9401
+    - name: restif-http-2-tcp
+      protocol: TCP
+      port: 9402
+      targetPort: 9402
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -214,3 +254,110 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
           command: ["/bin/sh", "-c", "source /data/k8s.env;/dbm"]
+        - name: logd
+          image: 192.168.70.143:5000/logd:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-data
+            mountPath: "/data"
+          - name: shared-bin
+            mountPath: "/bin"
+          - name: nfs-vol
+            subPathExpr: $(MY_POD_NAME)/CONFIG
+            mountPath: /data/CONFIG
+          env:
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          command: ["/bin/sh", "-c", "source /data/k8s.env;/logd_mkdir.sh;/logd"]
+        - name: emguib
+          image: 192.168.70.143:5000/emguib:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-data
+            mountPath: "/data"
+          - name: shared-bin
+            mountPath: "/bin"
+          - name: nfs-vol
+            subPathExpr: $(MY_POD_NAME)/CONFIG
+            mountPath: /data/CONFIG
+          env:
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          livenessProbe:
+            failureThreshold: 10
+            periodSeconds: 1
+            tcpSocket:
+              port: 21250
+          command: ["/bin/sh", "-c", "source /data/k8s.env;/emguib"]
+        - name: provib
+          image: 192.168.70.143:5000/provib:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-data
+            mountPath: "/data"
+          - name: shared-bin
+            mountPath: "/bin"
+          - name: emgc-pvc
+            subPathExpr: trc
+            mountPath: /home/altibase/altibase_home/trc
+          - name: nfs-vol
+            subPathExpr: $(MY_POD_NAME)/CONFIG
+            mountPath: /data/CONFIG
+          env:
+            - name: ALTIBASE_HOME
+              value: "/home/altibase/altibase_home"
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          command: ["/bin/sh", "-c", "source /data/k8s.env;/provib"]
+        - name: restif
+          image: 192.168.70.143:5000/restif:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-data
+            mountPath: "/data"
+          - name: nfs-vol
+            subPathExpr: $(MY_POD_NAME)/CONFIG
+            mountPath: /data/CONFIG
+          env:
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          livenessProbe:
+            failureThreshold: 10
+            periodSeconds: 1
+            tcpSocket:
+              port: 12444
+          command: ["/bin/sh", "-c", "source /data/k8s.env;/restif_mkdir.sh;/usr/local/tomcat/bin/startup.sh;tail -f /dev/null"]
+        - name: dbreplica
+          image: 192.168.70.143:5000/dbreplica:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-data
+            mountPath: "/data"
+          - name: shared-bin
+            mountPath: "/bin"
+          - name: emgc-pvc
+            subPathExpr: trc
+            mountPath: /home/altibase/altibase_home/trc
+          - name: nfs-vol
+            subPathExpr: $(MY_POD_NAME)/CONFIG
+            mountPath: /data/CONFIG
+          env:
+            - name: ALTIBASE_HOME
+              value: "/home/altibase/altibase_home"
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          command: ["/bin/sh", "-c", "source /data/k8s.env;/dbreplica"]
+        - name: tcpdump
+          image: 192.168.70.143:5000/tcpdump:1.0
+          imagePullPolicy: Always
+          command: ["/bin/sh", "-c", "tail -f /dev/null"]

@@ -5,6 +5,8 @@ kind: PersistentVolume
 metadata:
   namespace: ariel
   name: emgc-dbms-pv0
+  labels:
+    node_info: k8s-vm.1
 spec:
   capacity:
     storage: 2Gi
@@ -28,6 +30,8 @@ kind: PersistentVolume
 metadata:
   namespace: ariel
   name: emgc-dbms-pv1
+  labels:
+    node_info: k8s-vm.2
 spec:
   capacity:
     storage: 2Gi
@@ -55,6 +59,9 @@ spec:
   accessModes:
   - ReadWriteOnce
   storageClassName: emgc-dbms-storage
+  selector:
+    matchLabels:
+      node_info: k8s-vm.1
   resources:
     requests:
       storage: 2Gi
@@ -68,6 +75,9 @@ spec:
   accessModes:
   - ReadWriteOnce
   storageClassName: emgc-dbms-storage
+  selector:
+    matchLabels:
+      node_info: k8s-vm.2
   resources:
     requests:
       storage: 2Gi

@@ -6,11 +6,11 @@ metadata:
 data:
   config: |
     address-pools:
-    - name: pool-A
+    - name: emgc-as-service-pool-udp
       protocol: layer2
       addresses:
-      - 192.168.70.110-192.168.70.113
-    - name: pool-B
+      - 192.168.70.201-192.168.70.201
+    - name: emgc-as-service-pool-tcp
       protocol: layer2
       addresses:
-      - 192.168.70.170-192.168.70.173
+      - 192.168.70.202-192.168.70.202
