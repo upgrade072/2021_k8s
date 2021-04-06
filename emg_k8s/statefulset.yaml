@@ -192,167 +192,6 @@ spec:
             periodSeconds: 1
             tcpSocket:
               port: 20300
-        - name: ixpc
-          image: 192.168.70.143:5000/ixpc:1.0
-          imagePullPolicy: Always
-          volumeMounts:
-          - name: shared-data
-            mountPath: "/data"
-          - name: shared-bin
-            mountPath: "/bin"
-          env:
-            - name: MY_POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-          command: ["/bin/sh", "-c", "source /data/k8s.env;/ixpc"]
-        - name: authif
-          image: 192.168.70.143:5000/authif:1.0
-          imagePullPolicy: Always
-          volumeMounts:
-          - name: shared-data
-            mountPath: "/data"
-          - name: shared-bin
-            mountPath: "/bin"
-          - name: emgc-pvc
-            subPathExpr: trc
-            mountPath: /home/altibase/altibase_home/trc
-          - name: nfs-vol
-            subPathExpr: $(MY_POD_NAME)/CONFIG
-            mountPath: /data/CONFIG
-          env:
-            - name: ALTIBASE_HOME
-              value: "/home/altibase/altibase_home"
-            - name: MY_POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-          command: ["/bin/sh", "-c", "source /data/k8s.env;/entry.sh;/authif"]
-        - name: acntif
-          image: 192.168.70.143:5000/acntif:1.0
-          imagePullPolicy: Always
-          volumeMounts:
-          - name: shared-data
-            mountPath: "/data"
-          - name: shared-bin
-            mountPath: "/bin"
-          - name: emgc-pvc
-            subPathExpr: trc
-            mountPath: /home/altibase/altibase_home/trc
-          - name: nfs-vol
-            subPathExpr: $(MY_POD_NAME)/CONFIG
-            mountPath: /data/CONFIG
-          env:
-            - name: ALTIBASE_HOME
-              value: "/home/altibase/altibase_home"
-            - name: MY_POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-          command: ["/bin/sh", "-c", "source /data/k8s.env;/acntif"]
-        - name: dbm
-          image: 192.168.70.143:5000/dbm:1.0
-          imagePullPolicy: Always
-          volumeMounts:
-          - name: shared-data
-            mountPath: "/data"
-          - name: shared-bin
-            mountPath: "/bin"
-          - name: emgc-pvc
-            subPathExpr: trc
-            mountPath: /home/altibase/altibase_home/trc
-          - name: nfs-vol
-            subPathExpr: $(MY_POD_NAME)/CONFIG
-            mountPath: /data/CONFIG
-          env:
-            - name: ALTIBASE_HOME
-              value: "/home/altibase/altibase_home"
-            - name: MY_POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-          command: ["/bin/sh", "-c", "source /data/k8s.env;/dbm"]
-        - name: logd
-          image: 192.168.70.143:5000/logd:1.0
-          imagePullPolicy: Always
-          volumeMounts:
-          - name: shared-data
-            mountPath: "/data"
-          - name: shared-bin
-            mountPath: "/bin"
-          - name: nfs-vol
-            subPathExpr: $(MY_POD_NAME)/CONFIG
-            mountPath: /data/CONFIG
-          env:
-            - name: MY_POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-          command: ["/bin/sh", "-c", "source /data/k8s.env;/logd_mkdir.sh;/logd"]
-        - name: emguib
-          image: 192.168.70.143:5000/emguib:1.0
-          imagePullPolicy: Always
-          volumeMounts:
-          - name: shared-data
-            mountPath: "/data"
-          - name: shared-bin
-            mountPath: "/bin"
-          - name: nfs-vol
-            subPathExpr: $(MY_POD_NAME)/CONFIG
-            mountPath: /data/CONFIG
-          env:
-            - name: MY_POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-          livenessProbe:
-            failureThreshold: 10
-            periodSeconds: 1
-            tcpSocket:
-              port: 21250
-          command: ["/bin/sh", "-c", "source /data/k8s.env;/emguib"]
-        - name: provib
-          image: 192.168.70.143:5000/provib:1.0
-          imagePullPolicy: Always
-          volumeMounts:
-          - name: shared-data
-            mountPath: "/data"
-          - name: shared-bin
-            mountPath: "/bin"
-          - name: emgc-pvc
-            subPathExpr: trc
-            mountPath: /home/altibase/altibase_home/trc
-          - name: nfs-vol
-            subPathExpr: $(MY_POD_NAME)/CONFIG
-            mountPath: /data/CONFIG
-          env:
-            - name: ALTIBASE_HOME
-              value: "/home/altibase/altibase_home"
-            - name: MY_POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-          command: ["/bin/sh", "-c", "source /data/k8s.env;/provib"]
-        - name: restif
-          image: 192.168.70.143:5000/restif:1.0
-          imagePullPolicy: Always
-          volumeMounts:
-          - name: shared-data
-            mountPath: "/data"
-          - name: nfs-vol
-            subPathExpr: $(MY_POD_NAME)/CONFIG
-            mountPath: /data/CONFIG
-          env:
-            - name: MY_POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-          livenessProbe:
-            failureThreshold: 10
-            periodSeconds: 1
-            tcpSocket:
-              port: 12444
-          command: ["/bin/sh", "-c", "source /data/k8s.env;/restif_mkdir.sh;/usr/local/tomcat/bin/startup.sh;tail -f /dev/null"]
         - name: dbreplica
           image: 192.168.70.143:5000/dbreplica:1.0
           imagePullPolicy: Always
@@ -396,19 +235,32 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.hostIP
-          livenessProbe:
-            failureThreshold: 10
-            periodSeconds: 1
-            tcpSocket:
-              port: 21
-        - name: ftpib
-          image: 192.168.70.143:5000/ftpib:1.0
+        - name: ixpc
+          image: 192.168.70.143:5000/ixpc:1.0
           imagePullPolicy: Always
           volumeMounts:
           - name: shared-data
             mountPath: "/data"
           - name: shared-bin
             mountPath: "/bin"
+          livenessProbe:
+            failureThreshold: 3
+            periodSeconds: 1
+            httpGet:
+              path: /live/IXPC
+              port: 32768
+          command: ["/bin/sh", "-c", "source /data/k8s.env;/ixpc"]
+        - name: dbm
+          image: 192.168.70.143:5000/dbm:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-data
+            mountPath: "/data"
+          - name: shared-bin
+            mountPath: "/bin"
+          - name: emgc-pvc
+            subPathExpr: trc
+            mountPath: /home/altibase/altibase_home/trc
           - name: nfs-vol
             subPathExpr: $(MY_POD_NAME)/CONFIG
             mountPath: /data/CONFIG
@@ -419,11 +271,220 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-          command: ["/bin/sh", "-c", "source /data/k8s.env;/acntif"]
-        - name: tcpdump
-          image: 192.168.70.143:5000/tcpdump:1.0
+          livenessProbe:
+            failureThreshold: 3
+            periodSeconds: 1
+            httpGet:
+              path: /live/DBM
+              port: 32768
+          command: ["/bin/sh", "-c", "source /data/k8s.env;/dbm"]
+        - name: acntif
+          image: 192.168.70.143:5000/acntif:1.0
           imagePullPolicy: Always
-          command: ["/bin/sh", "-c", "tail -f /dev/null"]
+          volumeMounts:
+          - name: shared-data
+            mountPath: "/data"
+          - name: shared-bin
+            mountPath: "/bin"
+          - name: emgc-pvc
+            subPathExpr: trc
+            mountPath: /home/altibase/altibase_home/trc
+          - name: nfs-vol
+            subPathExpr: $(MY_POD_NAME)/CONFIG
+            mountPath: /data/CONFIG
+          env:
+            - name: ALTIBASE_HOME
+              value: "/home/altibase/altibase_home"
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          livenessProbe:
+            failureThreshold: 3
+            periodSeconds: 1
+            httpGet:
+              path: /live/ACNTIF
+              port: 32768
+          command: ["/bin/sh", "-c", "source /data/k8s.env;/acntif"]
+        - name: restif
+          image: 192.168.70.143:5000/restif:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-data
+            mountPath: "/data"
+          - name: nfs-vol
+            subPathExpr: $(MY_POD_NAME)/CONFIG
+            mountPath: /data/CONFIG
+          env:
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          livenessProbe:
+            failureThreshold: 3
+            periodSeconds: 1
+            httpGet:
+              path: /live/RESTIF
+              port: 32768
+          command: ["/bin/sh", "-c", "source /data/k8s.env;/restif_mkdir.sh;/usr/local/tomcat/bin/startup.sh;tail -f /dev/null"]
+        - name: provib
+          image: 192.168.70.143:5000/provib:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-data
+            mountPath: "/data"
+          - name: shared-bin
+            mountPath: "/bin"
+          - name: emgc-pvc
+            subPathExpr: trc
+            mountPath: /home/altibase/altibase_home/trc
+          - name: nfs-vol
+            subPathExpr: $(MY_POD_NAME)/CONFIG
+            mountPath: /data/CONFIG
+          env:
+            - name: ALTIBASE_HOME
+              value: "/home/altibase/altibase_home"
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          livenessProbe:
+            failureThreshold: 3
+            periodSeconds: 1
+            httpGet:
+              path: /live/PROVIB
+              port: 32768
+          command: ["/bin/sh", "-c", "source /data/k8s.env;/provib"]
+        - name: authif
+          image: 192.168.70.143:5000/authif:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-data
+            mountPath: "/data"
+          - name: shared-bin
+            mountPath: "/bin"
+          - name: emgc-pvc
+            subPathExpr: trc
+            mountPath: /home/altibase/altibase_home/trc
+          - name: nfs-vol
+            subPathExpr: $(MY_POD_NAME)/CONFIG
+            mountPath: /data/CONFIG
+          env:
+            - name: ALTIBASE_HOME
+              value: "/home/altibase/altibase_home"
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          livenessProbe:
+            failureThreshold: 3
+            periodSeconds: 1
+            httpGet:
+              path: /live/AUTHIF
+              port: 32768
+          command: ["/bin/sh", "-c", "source /data/k8s.env;/entry.sh;/authif"]
+        - name: ftpib
+          image: 192.168.70.143:5000/ftpib:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-data
+            mountPath: "/data"
+          - name: shared-bin
+            mountPath: "/bin"
+          - name: emgc-pvc
+            subPathExpr: trc
+            mountPath: /home/altibase/altibase_home/trc
+          - name: nfs-vol
+            subPathExpr: $(MY_POD_NAME)/CONFIG
+            mountPath: /data/CONFIG
+          env:
+            - name: ALTIBASE_HOME
+              value: "/home/altibase/altibase_home"
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          livenessProbe:
+            failureThreshold: 3
+            periodSeconds: 1
+            httpGet:
+              path: /live/FTPIB
+              port: 32768
+          command: ["/bin/sh", "-c", "source /data/k8s.env;/ftpib"]
+        - name: emguib
+          image: 192.168.70.143:5000/emguib:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-data
+            mountPath: "/data"
+          - name: shared-bin
+            mountPath: "/bin"
+          - name: nfs-vol
+            subPathExpr: $(MY_POD_NAME)/CONFIG
+            mountPath: /data/CONFIG
+          env:
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          livenessProbe:
+            failureThreshold: 3
+            periodSeconds: 1
+            httpGet:
+              path: /live/EMGUIB
+              port: 32768
+          command: ["/bin/sh", "-c", "source /data/k8s.env;/emguib"]
+        - name: logd
+          image: 192.168.70.143:5000/logd:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-data
+            mountPath: "/data"
+          - name: shared-bin
+            mountPath: "/bin"
+          - name: nfs-vol
+            subPathExpr: $(MY_POD_NAME)/CONFIG
+            mountPath: /data/CONFIG
+          env:
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          livenessProbe:
+            failureThreshold: 3
+            periodSeconds: 1
+            httpGet:
+              path: /live/LOGD
+              port: 32768
+          command: ["/bin/sh", "-c", "source /data/k8s.env;/logd_mkdir.sh;/logd"]
+        - name: reportd
+          image: 192.168.70.143:5000/reportd:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-data
+            mountPath: "/data"
+          - name: shared-bin
+            mountPath: "/bin"
+          - name: emgc-pvc
+            subPathExpr: trc
+            mountPath: /home/altibase/altibase_home/trc
+          - name: nfs-vol
+            subPathExpr: $(MY_POD_NAME)/CONFIG
+            mountPath: /data/CONFIG
+          env:
+            - name: ALTIBASE_HOME
+              value: "/home/altibase/altibase_home"
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          livenessProbe:
+            failureThreshold: 3
+            periodSeconds: 1
+            httpGet:
+              path: /live/REPORTD
+              port: 32768
+          command: ["/bin/sh", "-c", "source /data/k8s.env;mkdir -p /log/SESS_USAGE;/reportd"]
         - name: k8smgr
           image: 192.168.70.143:5000/k8smgr:1.0
           imagePullPolicy: Always

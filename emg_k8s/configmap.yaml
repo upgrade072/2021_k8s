@@ -33,6 +33,7 @@ data:
     AUTHIF  =  bin/authif      3                        0x75014     0x75015     NULL
     EMGUIB  =  bin/emguib      3                        0x75016     NULL        NULL
     LOGD    =  bin/logd        3                        0x75017     NULL        NULL
+    REPORTD =  bin/reportd     3                        0x75018     NULL        NULL
     K8SMGR  =  bin/k8smgr      3                        0x75021     NULL        NULL
 
     # TOM_PROC_NAME : [APPLICATIONS] name
@@ -260,3 +261,6 @@ data:
     cp /tmp/data/* /data
     cd /replace_script
     ./replace.sh ./list.txt
+    mkdir -p /data/PSUBS_FILE
+    mkdir -p /data/LTEID_FILE
+    mkdir -p /data/BKUP_FILE
