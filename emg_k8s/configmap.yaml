@@ -4,6 +4,11 @@ metadata:
   namespace: ariel
   name: emgc-config-map-1.0
 data:
+  associate_config: |
+    [ASSOCIATE_SYSTEMS]
+    EMGC_1  = EMGC  EMG   NULL  NULL  0x1000  NULL  NULL  SYSTEM_00
+    EMGC_2  = EMGC  EMG   NULL  NULL  0x1000  NULL  NULL  SYSTEM_00
+
   sysconfig: |
     [GENERAL]
     SYSTEM_LABEL = $MY_INDEX+EMGC_
@@ -20,22 +25,14 @@ data:
     #                   (1:minor, 2:major, 3:critical)
     #-------------------------------------------------------------------------------------------------
     IXPC    =  bin/ixpc        2                        0x75001     NULL        NULL
-    STMD    =  bin/stmd        3                        0x75002     NULL        NULL
-    SHMD    =  bin/shmd        3                        0x75003     NULL        NULL
-    SECURED =  bin/secured     3                        0x75004     NULL        NULL
     DBM     =  bin/dbm         3                        0x75005     NULL        NULL
-    BATCHD  =  bin/batchd      3                        0x75006     NULL        NULL
     ACNTIF  =  bin/acntif      3                        0x75007     0x75008     0x75009     0x75010
     RESTIF  =  bin/restif.sh   3                        TOMCAT      NULL        NULL
-    OLCD    =  bin/olcd        3                        0x75011     NULL        NULL
     FTPIB   =  bin/ftpib       3                        0x75012     NULL        NULL
     PROVIB  =  bin/provib      3                        0x75013     NULL        NULL
     AUTHIF  =  bin/authif      3                        0x75014     0x75015     NULL
     EMGUIB  =  bin/emguib      3                        0x75016     NULL        NULL
     LOGD    =  bin/logd        3                        0x75017     NULL        NULL
-    REPORTD =  bin/reportd     3                        0x75018     NULL        NULL
-    SLOADERD =  bin/sloaderd   3                        0x75019     NULL        NULL
-    NLOADERD =  bin/nloaderd   3                        0x75020     NULL        NULL
     K8SMGR  =  bin/k8smgr      3                        0x75021     NULL        NULL
 
     # TOM_PROC_NAME : [APPLICATIONS] name

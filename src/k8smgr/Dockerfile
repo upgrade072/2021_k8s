@@ -7,5 +7,6 @@ LABEL require4="need env=(IV_HOME, MY_POD_NAME, MY_SERVICE_NAME)"
 LABEL version_info="2021-03-29"
 ADD ./lib64 /lib64
 ADD ./k8smgr /k8smgr
+ENV IV_HOME "/"
 WORKDIR /
 CMD ["/k8smgr"]

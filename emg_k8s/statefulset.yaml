@@ -28,7 +28,7 @@ spec:
   publishNotReadyAddresses: true
   selector:
     app: emgc
-  #status: active
+    status: active
   externalTrafficPolicy: Local
   ports:
     - name: radius-access-udp
@@ -56,7 +56,7 @@ spec:
   publishNotReadyAddresses: true
   selector:
     app: emgc
-  #status: active
+    status: active
   externalTrafficPolicy: Local
   ports:
     - name: emguib-emgu-tcp
@@ -75,6 +75,10 @@ spec:
       protocol: TCP
       port: 9402
       targetPort: 9402
+    - name: ftp-server-tcp
+      protocol: TCP
+      port: 10021
+      targetPort: 21
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -188,6 +192,20 @@ spec:
             periodSeconds: 1
             tcpSocket:
               port: 20300
+        - name: ixpc
+          image: 192.168.70.143:5000/ixpc:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-data
+            mountPath: "/data"
+          - name: shared-bin
+            mountPath: "/bin"
+          env:
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          command: ["/bin/sh", "-c", "source /data/k8s.env;/ixpc"]
         - name: authif
           image: 192.168.70.143:5000/authif:1.0
           imagePullPolicy: Always
@@ -357,7 +375,78 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
           command: ["/bin/sh", "-c", "source /data/k8s.env;/dbreplica"]
+        - name: ftpserver
+          image: 192.168.70.143:5000/ftpserver:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-data
+            mountPath: "/data"
+          ports:
+            - name: ftp-passive
+              hostPort: 21000
+              containerPort: 21000
+          env:
+            - name: MIN_PORT
+              value: "21000"
+            - name: MAX_PORT
+              value: "21000"
+            - name: USERS
+              value: "ariel|ariel.1234|/data"
+            - name: ADDRESS
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          livenessProbe:
+            failureThreshold: 10
+            periodSeconds: 1
+            tcpSocket:
+              port: 21
+        - name: ftpib
+          image: 192.168.70.143:5000/ftpib:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-data
+            mountPath: "/data"
+          - name: shared-bin
+            mountPath: "/bin"
+          - name: nfs-vol
+            subPathExpr: $(MY_POD_NAME)/CONFIG
+            mountPath: /data/CONFIG
+          env:
+            - name: ALTIBASE_HOME
+              value: "/home/altibase/altibase_home"
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          command: ["/bin/sh", "-c", "source /data/k8s.env;/acntif"]
         - name: tcpdump
           image: 192.168.70.143:5000/tcpdump:1.0
           imagePullPolicy: Always
           command: ["/bin/sh", "-c", "tail -f /dev/null"]
+        - name: k8smgr
+          image: 192.168.70.143:5000/k8smgr:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-data
+            mountPath: "/data"
+          - name: shared-bin
+            mountPath: "/bin"
+          - name: ariel-acc-token
+            mountPath: "/k8s/secret"
+          env:
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: MY_SERVICE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['service']
+          livenessProbe:
+            failureThreshold: 3
+            periodSeconds: 1
+            httpGet:
+              path: /live/K8SMGR
+              port: 32768
+          command: ["/k8smgr"]
