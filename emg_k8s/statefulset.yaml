@@ -105,6 +105,9 @@ spec:
         app: emgc
         service: emgc-mp-service ## ref headless-svc.metadata.name
         statefulset: emgc-mp-statefulset ## ref Statefulset.metadata.name
+        name: MP
+        type: EMG
+        group: EMGC
     spec:
       securityContext: 
         sysctls:
@@ -133,6 +136,18 @@ spec:
         nfs:
           server: 192.168.70.143
           path: /nfs_data/ariel/emgc
+      - name: label-conf
+        downwardAPI:
+          items:
+            - path: name
+              fieldRef:
+                fieldPath: metadata.labels['name']
+            - path: type
+              fieldRef:
+                fieldPath: metadata.labels['type']
+            - path: group
+              fieldRef:
+                fieldPath: metadata.labels['group']
       initContainers:
         - name: init-container-00
           image: 192.168.70.143:5000/busybox:1.0
@@ -156,10 +171,27 @@ spec:
             - name: emgc-init-script
               mountPath: "/init_script"
           env:
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
             - name: MY_POD_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: MY_POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: MY_NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: EMS_TOPO_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: emgc-config-map-1.0
+                  key: EMS_TOPO_ADDR
             - name: MY_STATEFUL_SET
               valueFrom:
                 fieldRef:
@@ -235,6 +267,16 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.hostIP
+        - name: topo
+          image: 192.168.70.143:5000/topo:1.0
+          volumeMounts:
+          - name: label-conf
+            mountPath: "/label_conf"
+          - name: shared-data
+            mountPath: "/data"
+          - name: shared-bin
+            mountPath: "/bin"
+          command: ["/bin/sh", "-c", "source /data/k8s.env;/topo"]
         - name: ixpc
           image: 192.168.70.143:5000/ixpc:1.0
           imagePullPolicy: Always

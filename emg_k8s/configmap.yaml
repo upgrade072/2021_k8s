@@ -249,6 +249,11 @@ data:
     echo export SYS_MP_ID=1 >> /data/k8s.env
     MY_SYS_NAME=`grep SYSTEM_LABEL /data/sysconfig | awk '{ print $3}'`
     echo export MY_SYS_NAME=$MY_SYS_NAME >> /data/k8s.env
+    echo export MY_NODE_NAME=$MY_NODE_NAME >> /data/k8s.env
+    echo export MY_POD_NAME=$MY_POD_NAME >> /data/k8s.env
+    echo export MY_POD_IP=$MY_POD_IP >> /data/k8s.env
+    echo export MY_NODE_IP=$MY_NODE_IP >> /data/k8s.env
+    echo export EMS_TOPO_ADDR=$EMS_TOPO_ADDR >> /data/k8s.env
 ---
 apiVersion: v1
 kind: ConfigMap
