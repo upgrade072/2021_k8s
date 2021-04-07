@@ -238,9 +238,10 @@ void udp_client_proc(evutil_socket_t fd, short what, void *arg)
 
 	/* send my info */
 	char send_msg[1024] = {0,};
-	sprintf(send_msg, "%s|%s|%s|%s|%s|%s|%s", 
+	sprintf(send_msg, "%s|%s|%s|%s|%s|%s|%s|%s", 
 			MAIN_CTX->name, MAIN_CTX->type, MAIN_CTX->group, 
-			MAIN_CTX->my_node_ip, MAIN_CTX->my_pod_ip, MAIN_CTX->my_node_name, MAIN_CTX->my_pod_name);
+			MAIN_CTX->my_node_ip, MAIN_CTX->my_pod_ip, MAIN_CTX->port,
+			MAIN_CTX->my_node_name, MAIN_CTX->my_pod_name);
 
 	int send_bytes = sendto(sockfd, send_msg, strlen(send_msg), 0,
 			(struct sockaddr *)&omp_addr, sizeof(struct sockaddr));

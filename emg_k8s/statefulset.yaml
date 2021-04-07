@@ -80,6 +80,50 @@ spec:
       port: 10021
       targetPort: 21
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: ariel
+  name: emgc-ixpc-mp-1
+  labels:
+    app: emgc
+spec:
+  clusterIP: "" # "" means any of CIDR ip address
+  type: NodePort
+  publishNotReadyAddresses: true
+  selector:
+    app: emgc
+    statefulset.kubernetes.io/pod-name: emgc-mp-statefulset-0
+  externalTrafficPolicy: Local
+  ports:
+    - name: ixpc
+      protocol: TCP
+      nodePort: 30209
+      port: 30209
+      targetPort: 30209
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: ariel
+  name: emgc-ixpc-mp-2
+  labels:
+    app: emgc
+spec:
+  clusterIP: "" # "" means any of CIDR ip address
+  type: NodePort
+  publishNotReadyAddresses: true
+  selector:
+    app: emgc
+    statefulset.kubernetes.io/pod-name: emgc-mp-statefulset-1
+  externalTrafficPolicy: Local
+  ports:
+    - name: ixpc
+      protocol: TCP
+      nodePort: 30210
+      port: 30210
+      targetPort: 30210
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -105,9 +149,10 @@ spec:
         app: emgc
         service: emgc-mp-service ## ref headless-svc.metadata.name
         statefulset: emgc-mp-statefulset ## ref Statefulset.metadata.name
-        name: MP
+        name: EMGC
         type: EMG
         group: EMGC
+        ixpc-base-port: "0x7600"
     spec:
       securityContext: 
         sysctls:
@@ -120,6 +165,10 @@ spec:
       - name: shared-bin
         emptyDir: {}
       - name: shared-data
+        emptyDir: {}
+      - name: shared-nas-hist
+        emptyDir: {}
+      - name: shared-subue-hist
         emptyDir: {}
       - name: ariel-acc-token
         secret:
@@ -148,6 +197,9 @@ spec:
             - path: group
               fieldRef:
                 fieldPath: metadata.labels['group']
+            - path: ixpc_base_port
+              fieldRef:
+                fieldPath: metadata.labels['ixpc-base-port']
       initContainers:
         - name: init-container-00
           image: 192.168.70.143:5000/busybox:1.0
@@ -269,6 +321,7 @@ spec:
                   fieldPath: status.hostIP
         - name: topo
           image: 192.168.70.143:5000/topo:1.0
+          imagePullPolicy: Always
           volumeMounts:
           - name: label-conf
             mountPath: "/label_conf"
@@ -292,6 +345,52 @@ spec:
               path: /live/IXPC
               port: 32768
           command: ["/bin/sh", "-c", "source /data/k8s.env;/ixpc"]
+        - name: stmd
+          image: 192.168.70.143:5000/stmd:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-data
+            mountPath: "/data"
+          - name: shared-bin
+            mountPath: "/bin"
+          - name: nfs-vol
+            subPathExpr: $(MY_POD_NAME)/CONFIG
+            mountPath: /data/CONFIG
+          env:
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          livenessProbe:
+            failureThreshold: 3
+            periodSeconds: 1
+            httpGet:
+              path: /live/STMD
+              port: 32768
+          command: ["/bin/sh", "-c", "source /data/k8s.env;/stmd"]
+        - name: secured
+          image: 192.168.70.143:5000/secured:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-data
+            mountPath: "/data"
+          - name: shared-bin
+            mountPath: "/bin"
+          - name: nfs-vol
+            subPathExpr: $(MY_POD_NAME)/CONFIG
+            mountPath: /data/CONFIG
+          env:
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          livenessProbe:
+            failureThreshold: 3
+            periodSeconds: 1
+            httpGet:
+              path: /live/SECURED
+              port: 32768
+          command: ["/bin/sh", "-c", "source /data/k8s.env;/secured"]
         - name: dbm
           image: 192.168.70.143:5000/dbm:1.0
           imagePullPolicy: Always
@@ -320,6 +419,28 @@ spec:
               path: /live/DBM
               port: 32768
           command: ["/bin/sh", "-c", "source /data/k8s.env;/dbm"]
+        - name: batchd 
+          image: 192.168.70.143:5000/batchd:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-data
+            mountPath: "/data"
+          - name: shared-bin
+            mountPath: "/bin"
+          - name: emgc-pvc
+            subPathExpr: trc
+            mountPath: /home/altibase/altibase_home/trc
+          - name: nfs-vol
+            subPathExpr: $(MY_POD_NAME)/CONFIG
+            mountPath: /data/CONFIG
+          env:
+            - name: ALTIBASE_HOME
+              value: "/home/altibase/altibase_home"
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          command: ["/bin/sh", "-c", "source /data/k8s.env;/batchd"]
         - name: acntif
           image: 192.168.70.143:5000/acntif:1.0
           imagePullPolicy: Always
@@ -369,6 +490,23 @@ spec:
               path: /live/RESTIF
               port: 32768
           command: ["/bin/sh", "-c", "source /data/k8s.env;/restif_mkdir.sh;/usr/local/tomcat/bin/startup.sh;tail -f /dev/null"]
+        - name: olcd
+          image: 192.168.70.143:5000/olcd:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-data
+            mountPath: "/data"
+          - name: shared-bin
+            mountPath: "/bin"
+          - name: nfs-vol
+            subPathExpr: $(MY_POD_NAME)/CONFIG
+            mountPath: /data/CONFIG
+          env:
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          command: ["/bin/sh", "-c", "source /data/k8s.env;/olcd"]
         - name: provib
           image: 192.168.70.143:5000/provib:1.0
           imagePullPolicy: Always
@@ -487,6 +625,10 @@ spec:
           - name: nfs-vol
             subPathExpr: $(MY_POD_NAME)/CONFIG
             mountPath: /data/CONFIG
+          - name: shared-nas-hist
+            mountPath: /log/NAS_HIST
+          - name: shared-subue-hist
+            mountPath: /log/SUBUE_HIST
           env:
             - name: MY_POD_NAME
               valueFrom:
@@ -527,6 +669,70 @@ spec:
               path: /live/REPORTD
               port: 32768
           command: ["/bin/sh", "-c", "source /data/k8s.env;mkdir -p /log/SESS_USAGE;/reportd"]
+        - name: sloaderd
+          image: 192.168.70.143:5000/sloaderd:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-data
+            mountPath: "/data"
+          - name: shared-bin
+            mountPath: "/bin"
+          - name: emgc-pvc
+            subPathExpr: trc
+            mountPath: /home/altibase/altibase_home/trc
+          - name: nfs-vol
+            subPathExpr: $(MY_POD_NAME)/CONFIG
+            mountPath: /data/CONFIG
+          - name: shared-nas-hist
+            mountPath: /log/NAS_HIST
+          - name: shared-subue-hist
+            mountPath: /log/SUBUE_HIST
+          env:
+            - name: ALTIBASE_HOME
+              value: "/home/altibase/altibase_home"
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          livenessProbe:
+            failureThreshold: 3
+            periodSeconds: 1
+            httpGet:
+              path: /live/SLOADERD
+              port: 32768
+          command: ["/bin/sh", "-c", "source /data/k8s.env;mkdir -p /log/SUBUE_HIST_BK;cp iloader /bin;/sloaderd"]
+        - name: nloaderd
+          image: 192.168.70.143:5000/nloaderd:1.0
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: shared-data
+            mountPath: "/data"
+          - name: shared-bin
+            mountPath: "/bin"
+          - name: emgc-pvc
+            subPathExpr: trc
+            mountPath: /home/altibase/altibase_home/trc
+          - name: nfs-vol
+            subPathExpr: $(MY_POD_NAME)/CONFIG
+            mountPath: /data/CONFIG
+          - name: shared-nas-hist
+            mountPath: /log/NAS_HIST
+          - name: shared-subue-hist
+            mountPath: /log/SUBUE_HIST
+          env:
+            - name: ALTIBASE_HOME
+              value: "/home/altibase/altibase_home"
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          livenessProbe:
+            failureThreshold: 3
+            periodSeconds: 1
+            httpGet:
+              path: /live/NLOADERD
+              port: 32768
+          command: ["/bin/sh", "-c", "source /data/k8s.env;cp iloader /bin;/nloaderd"]
         - name: k8smgr
           image: 192.168.70.143:5000/k8smgr:1.0
           imagePullPolicy: Always

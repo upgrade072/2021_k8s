@@ -8,7 +8,7 @@ void assoc_info_fill_cb(element_t *elem, ft_table_t *table)
 				"### NAME", "TYPE", "GROUP", "MGNT_PRI_IP", "MGNT_SEC_IP", "MGNT_PORT",
 				"SERV_PRI_IP", "SERV_SEC_IP", "INFO_NAME", "VNFC_ID");
 	} else {
-		ft_printf_ln(table, "%s|=|%s|%s|%s|%s|0x%x|%s|%s|%s|%s",
+		ft_printf_ln(table, "%s|=|%s|%s|%s|%s|%s|%s|%s|%s|%s",
 				node_info->name,
 				node_info->type,
 				node_info->group,
@@ -71,6 +71,7 @@ int assoc_info_cleanup(main_ctx_t *MAIN_CTX)
 	return arg.clear_count;
 }
 
+#if 0
 void assoc_info_get_port_cb(element_t *elem, int *port)
 {
 	node_info_t *node_info = (node_info_t *)elem->data;
@@ -99,6 +100,7 @@ int assoc_info_get_unuse_port(main_ctx_t *MAIN_CTX)
 		}
 	}
 }
+#endif
 
 void assoc_info_reply_cb(element_t *elem, char *buffer)
 {
@@ -108,7 +110,7 @@ void assoc_info_reply_cb(element_t *elem, char *buffer)
 	} else {
 		char mgnt_port_str[128] = {0,};
 		if (node_info->mgnt_port >= 0) {
-			sprintf(mgnt_port_str, "0x%x", node_info->mgnt_port);
+			sprintf(mgnt_port_str, "%s", node_info->mgnt_port);
 		} else {
 			sprintf(mgnt_port_str, "%s", "NULL");
 		}
@@ -228,12 +230,13 @@ int assoc_info_get_from_pod(const char *recv_str, node_info_t *node_info)
 
 	/* scan info */
 	// FEP_01|MP|LMF|192.168.70.82|10.0.5.34|k8s-vm.5|k8s-test-downward-0
-	int scan_res = sscanf(recv_str, "%127[^|]|%127[^|]|%127[^|]|%127[^|]|%127[^|]|%127[^|]|%127s",
+	int scan_res = sscanf(recv_str, "%127[^|]|%127[^|]|%127[^|]|%127[^|]|%127[^|]|%127[^|]|%127[^|]|%127s",
 			node_info->name,
 			node_info->type,
 			node_info->group,
 			node_info->mgnt_pri_ip,
 			node_info->serv_pri_ip,
+			node_info->mgnt_port,
 			node_info->node_name,
 			node_info->pod_name);
 	sprintf(node_info->mgnt_sec_ip, "%s", "NULL");
@@ -255,19 +258,17 @@ int assoc_info_get_from_omp(const char *recv_str, node_info_t *node_info)
 
 	/* scan info */
 	// OMP|OMP|LMF|192.168.70.143|NULL|0x1f41|NULL|NULL|SYSTEM01|test-vnfc-0000
-	char mgnt_port_str[128] = {0,};
 	int scan_res = sscanf(recv_str, "%127[^|]|%127[^|]|%127[^|]|%127[^|]|%127[^|]|%127[^|]|%127[^|]|%127[^|]|%127[^|]|%127s",
 			node_info->name,
 			node_info->type,
 			node_info->group,
 			node_info->mgnt_pri_ip,
 			node_info->mgnt_sec_ip,
-			mgnt_port_str,
+			node_info->mgnt_port,
 			node_info->serv_pri_ip,
 			node_info->serv_sec_ip,
 			node_info->info_name,
 			node_info->vnfc_id);
-	node_info->mgnt_port = strtol(mgnt_port_str + 2, NULL, 16);
 
 	if (scan_res == EOF || scan_res <= 0) {
 		fprintf(stderr, "%s() fail to parse recv assoc_info=[%s]!\n", __func__, recv_str);
@@ -342,14 +343,11 @@ int node_proc_pod_send_info(main_ctx_t *MAIN_CTX, char *recv_msg)
 
 	if (elem == NULL) {
         /* if new, add node_info */
-        node_info.mgnt_port = assoc_info_get_unuse_port(MAIN_CTX);
 		if (strlen(node_info.pod_name) > 0) {
 			sprintf(node_info.info_name, "%s", node_info.pod_name);
-		} else {
-			sprintf(node_info.info_name, "SYSTEM%02d", node_info.mgnt_port - MAIN_CTX->base_port);
 		}
 
-        fprintf(stderr, "%s() try add new node=(%s) into list with_port=(0x%x)!\n", __func__, node_info.name, node_info.mgnt_port);
+        fprintf(stderr, "%s() try add new node=(%s) into list with_port=(%s)!\n", __func__, node_info.name, node_info.mgnt_port);
 
         element_t *new_node = new_element(node_info.name, &node_info, sizeof(node_info_t));
         add_element(MAIN_CTX->node_list, new_node);
@@ -374,14 +372,12 @@ int node_proc_pod_send_info(main_ctx_t *MAIN_CTX, char *recv_msg)
 
 	/* if have other cluster info, replace node_info */
 	{
-		node_info.mgnt_port = already_node->mgnt_port;
+		sprintf(node_info.mgnt_port , "%s", already_node->mgnt_port);
 		if (strlen(node_info.pod_name) > 0) {
 			sprintf(node_info.info_name, "%s", node_info.pod_name);
-		} else {
-			sprintf(node_info.info_name, "SYSTEM%02d", node_info.mgnt_port - MAIN_CTX->base_port);
 		}
 
-		fprintf(stderr, "%s() relpace node=(%s) into list with_port=(0x%x)!\n", __func__, node_info.name, node_info.mgnt_port);
+		fprintf(stderr, "%s() relpace node=(%s) into list with_port=(%s)!\n", __func__, node_info.name, node_info.mgnt_port);
 
 		rem_element(elem);
 
@@ -406,10 +402,9 @@ void node_info_print(main_ctx_t *MAIN_CTX)
     ft_printf_ln(table, "%s|%s|%s|%s|%s|%s", "NODE_NAME", "MGNT_IP", "MGNT_PORT", "POD_NAME", "POD_IP", "MP_NAME");
     ft_add_separator(table);
     for (int i = 0; i < count; i++) {
-        ft_printf_ln(table, "%s|%s|%d/0x%x|%s|%s|%s",
+        ft_printf_ln(table, "%s|%s|%s|%s|%s|%s",
                 strlen(node_list[i].node_name) > 0 ? node_list[i].node_name : "N/A",
                 node_list[i].mgnt_pri_ip,
-                node_list[i].mgnt_port,
                 node_list[i].mgnt_port,
                 strlen(node_list[i].pod_name) > 0 ? node_list[i].pod_name : "N/A",
                 strlen(node_list[i].serv_pri_ip) > 0 ? node_list[i].serv_pri_ip : "N/A",

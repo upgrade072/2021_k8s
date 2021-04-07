@@ -36,8 +36,7 @@ void proc_start(main_ctx_t *MAIN_CTX)
 		struct event *ev_udp_snd_rcv = event_new(MAIN_CTX->evbase_main, -1, EV_PERSIST, udp_client_proc, MAIN_CTX);
 		event_add(ev_udp_snd_rcv, &one_sec) < 0 ? proc_exit(): NULL;
 	} else {
-		struct event *ev_udp_rcv_snd = event_new(MAIN_CTX->evbase_main, 
-				MAIN_CTX->omp_sockfd, EV_READ | EV_PERSIST, udp_server_proc, MAIN_CTX);
+		struct event *ev_udp_rcv_snd = event_new(MAIN_CTX->evbase_main, MAIN_CTX->omp_sockfd, EV_READ | EV_PERSIST, udp_server_proc, MAIN_CTX);
 		event_add(ev_udp_rcv_snd, NULL) < 0 ? proc_exit(): NULL;
 	}
 

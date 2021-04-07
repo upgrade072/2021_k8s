@@ -54,6 +54,7 @@ typedef struct main_ctx_t {
 	char name[128];
 	char type[128];
 	char group[128];
+	char port[128];
 
 	/* for communication */
 	char omp_ip[128];
@@ -75,7 +76,7 @@ typedef struct node_info_t {
 
 	char mgnt_pri_ip[128];
 	char mgnt_sec_ip[128];
-	int mgnt_port;
+	char mgnt_port[128];
 
 	char serv_pri_ip[128];
 	char serv_sec_ip[128];

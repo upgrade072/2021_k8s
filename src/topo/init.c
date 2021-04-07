@@ -23,7 +23,7 @@ int init_omp_server(main_ctx_t *MAIN_CTX)
 	sprintf(node_info.group, "%s", MAIN_CTX->mp_label);
 	sprintf(node_info.mgnt_pri_ip, "%s", MAIN_CTX->omp_ip);
 	sprintf(node_info.mgnt_sec_ip, "%s", "NULL");
-	node_info.mgnt_port = MAIN_CTX->base_port + 1; /* caution ! */
+	sprintf(node_info.mgnt_port, "0x%X", MAIN_CTX->base_port + 1);
 	sprintf(node_info.serv_pri_ip, "%s", "NULL");
 	sprintf(node_info.serv_sec_ip, "%s", "NULL");
 	sprintf(node_info.info_name, "%s", "OMP_SYSTEM");
@@ -113,7 +113,7 @@ int init_omp_client(main_ctx_t *MAIN_CTX)
 		return -1;
 	} else {
 		fprintf(stderr, "%s(): /label_conf/name=[%s] checked! ", __func__, MAIN_CTX->name);
-		sprintf(MAIN_CTX->name + strlen(MAIN_CTX->name), "_%02d", MAIN_CTX->my_mp_index + 1);
+		sprintf(MAIN_CTX->name + strlen(MAIN_CTX->name), "_%d", MAIN_CTX->my_mp_index + 1);
 		fprintf(stderr, "name converted to=[%s]!\n", MAIN_CTX->name);
 	}
 
@@ -127,6 +127,15 @@ int init_omp_client(main_ctx_t *MAIN_CTX)
 		return -1;
 	} else {
 		fprintf(stderr, "%s(): /label_conf/group=[%s] checked!\n", __func__, MAIN_CTX->group);
+	}
+
+	char base_port[1024] = {0,};
+	if (fopen_read("/label_conf/ixpc_base_port", base_port, 127) == NULL) {
+		return -1;
+	} else {
+		int my_mgnt_port = strtol(base_port + 2, NULL, 16) + MAIN_CTX->my_mp_index + 1;
+		sprintf(MAIN_CTX->port, "0x%X", my_mgnt_port);
+		fprintf(stderr, "%s(): /label_conf/ixpc_base_port=[%s] checked! => cnvt [%s]\n", __func__, base_port, MAIN_CTX->port);
 	}
 
 	/* init node list & add omp node info */
