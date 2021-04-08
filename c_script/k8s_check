@@ -1,0 +1,84 @@
+#!/bin/bash
+
+clear 
+
+echo "what do you want?------------------"
+echo "1) check pod label status"
+echo "2) check pod status"
+echo "3) check container status"
+echo -n "input number: "
+read WHAT
+echo ""
+
+echo "select namespace-------------------"
+IFS=$'\n'
+NSS=`kubectl get namespace -o json | jq -r .items[].metadata.name`
+NSS_ARRAY=($NSS)
+count=0
+for i in ${NSS_ARRAY[@]}
+do
+	echo "$count) $i"
+	let "count += 1"
+done
+echo -n "{select num}: "
+read input_num
+NAMESPACE=${NSS_ARRAY[$input_num]}
+echo "NAMESPACE=($NAMESPACE)"
+echo ""
+
+echo "select pod-------------------------"
+IFS=$'\n'
+PODS=`kubectl get pod -n $NAMESPACE -o json | jq -r .items[].metadata.name`
+PODS_ARRAY=($PODS)
+count=0
+for i in ${PODS_ARRAY[@]}
+do
+	echo "$count) $i"
+	let "count += 1"
+done
+echo -n "{select num}: "
+read input_num
+POD=${PODS_ARRAY[$input_num]}
+echo "POD=($POD)"
+echo ""
+
+if [ $WHAT == "3" ];then
+echo "select container-------------------"
+IFS=$'\n'
+CONTAINERS=`kubectl get pod -n $NAMESPACE $POD -o json | jq -r .spec.containers[].name`
+CONTAINERS_ARRAY=($CONTAINERS)
+count=0
+for i in ${CONTAINERS_ARRAY[@]}
+do
+	echo "$count) $i"
+	let "count += 1"
+done
+echo -n "{select num}: "
+read input_num
+CONTAINER=${CONTAINERS_ARRAY[$input_num]}
+echo "CONTAINER=($CONTAINER)"
+echo ""
+fi
+
+if [ $WHAT == "1" ];then
+	while :
+	do
+		clear
+		kubectl get pod -n $NAMESPACE $POD -o json | jq .metadata.labels
+		sleep 1
+	done
+elif [ $WHAT == "2" ];then
+	while :
+	do
+		clear
+		kubectl get pod -n $NAMESPACE $POD -o json | jq -c '.status.containerStatuses[] |  { name: .name, state: .state }'
+		sleep 1
+	done
+elif [ $WHAT == "3" ];then
+	while :
+	do
+		clear
+		kubectl get pod -n $NAMESPACE $POD -o json | jq '.status.containerStatuses[] | select(.name == "'"$CONTAINER"'")'
+		sleep 1
+	done
+fi
