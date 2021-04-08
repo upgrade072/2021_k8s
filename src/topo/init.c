@@ -14,6 +14,8 @@ int init_omp_server(main_ctx_t *MAIN_CTX)
 	} else {
 		fprintf(stderr, "%s(): my_mp_label=[%s] checked!\n", __func__, MAIN_CTX->mp_label);
 	}
+	sprintf(MAIN_CTX->name, "%s", MAIN_CTX->my_sys_name);
+	fprintf(stderr, "%s(): my_name=[%s] checked!\n", __func__, MAIN_CTX->name);
 
 	/* create initial node topology */
 	node_info_t node_info;
@@ -27,7 +29,7 @@ int init_omp_server(main_ctx_t *MAIN_CTX)
 	sprintf(node_info.serv_pri_ip, "%s", "NULL");
 	sprintf(node_info.serv_sec_ip, "%s", "NULL");
 	sprintf(node_info.info_name, "%s", "OMP_SYSTEM");
-	sprintf(node_info.vnfc_id, "%s", "test-vnfc-0000");
+	sprintf(node_info.vnfc_id, "%s", "vnfc-not-assigned");
 
 	/* init node list & add omp node info */
 	MAIN_CTX->node_list = new_element(NULL, NULL, 0);
@@ -151,6 +153,14 @@ int initialize(main_ctx_t *MAIN_CTX)
 	fprintf(stderr, "process <%s> started-!\n", __progname);
 	fprintf(stderr, "----------------------------------\n");
 
+	/* check sysconfig exist */
+	if (keepalivelib_init(__progname) < 0) {
+		fprintf(stderr, "%s() [%s] unregisterd to sysconfig!\n", __func__, __progname);
+		return -1;
+	} else {
+		fprintf(stderr, "%s() [%s] keepaliveIndex=[%d]\n", __func__, __progname, keepaliveIndex);
+	}
+
 	/* get ems topo svr addr */
 	const char *ems_topo_addr = MAIN_CTX->ems_topo_addr = getenv(EMS_TOPO_ADDR);
 	if (ems_topo_addr == NULL) {
@@ -173,6 +183,16 @@ int initialize(main_ctx_t *MAIN_CTX)
 	sscanf(MAIN_CTX->ems_topo_addr, "%127[^:]:%127s", MAIN_CTX->omp_ip, port_str);
 	MAIN_CTX->base_port = atoi(port_str);
 	fprintf(stderr, "%s(): omp_ip=[%s] base_port=[0x%x]\n", __func__, MAIN_CTX->omp_ip, MAIN_CTX->base_port);
+
+	/* get ixpcQid */
+	char sysconf_file[128] = {0,};
+	sprintf(sysconf_file, "%s/data/sysconfig", getenv("IV_HOME"));
+	if ((MAIN_CTX->ixpcQid = commlib_crteMsgQ(sysconf_file, "IXPC", 0)) < 0) {
+		fprintf(stderr, "%s(): can't get ixpcQid!\n", __func__);
+		return -1;
+	} else {
+		fprintf(stderr, "%s(): get ixpcQid=(0x%X)!\n", __func__, MAIN_CTX->ixpcQid);
+	}
 
 	/* role decision */
 	if (my_sys_name != NULL && !strcasecmp(my_sys_name, "omp")) {

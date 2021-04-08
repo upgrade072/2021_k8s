@@ -8,6 +8,7 @@ BUILD_LIBS = $(BUILD_LIBS_PATH)/libevent_pthreads.a \
              $(BUILD_LIBS_PATH)/libevent.a \
              $(BUILD_LIBS_PATH)/libfort.a \
              $(BUILD_LIBS_PATH)/libs.a \
+             $(BUILD_LIBS_PATH)/libcomm.a \
              -lpthread -lrt -lm
 
 SRCS        = main.c init.c udp.c node.c

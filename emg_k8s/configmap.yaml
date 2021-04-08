@@ -6,11 +6,11 @@ metadata:
 data:
   overload.conf: |
     [GENERAL]
-    MON_PERIOD   = 5      # seconds. Avarage TPS 
-    CPU_DURATION = 5      # seconds. CPU 
-    CPU_LIMIT    = 50  30  # percentage. CPU 
-    MEM_DURATION = 5      # seconds. MEM 
-    MEM_LIMIT    = 80  50  # percentage. MEM 
+    MON_PERIOD   = 5        # seconds. Avarage TPS 
+    CPU_DURATION = 5        # seconds. CPU 
+    CPU_LIMIT    = 50  30   # percentage. CPU 
+    MEM_DURATION = 5        # seconds. MEM 
+    MEM_LIMIT    = 80  50   # percentage. MEM 
 
     [TPS_LIMIT]
     #normal
@@ -28,10 +28,7 @@ data:
 
   associate_config: |
     [ASSOCIATE_SYSTEMS]
-    ### NAME       TYPE   GROUP   MGNT_PRI_IP      MGNT_SEC_IP   MGNT_PORT   SERV_PRI_IP   SERV_SEC_IP   INFO_NAME               VNFC_ID        
-    EMGC_1     =   EMG    EMGC    192.168.70.147   NULL          0x7601      10.0.1.117    NULL          emgc-mp-statefulset-0                  
-    EMGC_2     =   EMG    EMGC    192.168.70.163   NULL          0x7602      10.0.2.219    NULL          emgc-mp-statefulset-1                  
-    OMP        =   OMP    LMF     192.168.70.143   NULL          0x7600      NULL          NULL          OMP_SYSTEM              test-vnfc-0000 
+    ### it will auto created by [TOPO] container
 
   sysconfig: |
     [GENERAL]
@@ -64,7 +61,8 @@ data:
     REPORTD =  bin/reportd     3                        0x75018     NULL        NULL
     SLOADERD =  bin/sloaderd   3                        0x75019     NULL        NULL
     NLOADERD =  bin/nloaderd   3                        0x75020     NULL        NULL
-    K8SMGR  =  bin/k8smgr      3                        0x75021     NULL        NULL
+    TOPO    =  bin/topo        3                        NULL        NULL        NULL
+    K8SMGR  =  bin/k8smgr      3                        NULL        NULL        NULL
 
     # TOM_PROC_NAME : [APPLICATIONS] name
     # TOM_PROC_BIN  : ps -ef | grep [TOM_PROC_BIN]
@@ -136,7 +134,7 @@ data:
     [SYSLOG_KEY]
     KEY1 = rcsga
 
-  EMS_TOPO_ADDR: 192.168.70.143:30207
+  EMS_TOPO_ADDR: 192.168.70.87:30207
 
   # AA (All Active) AS (Active-Standby) SA (Standby-Active)
   AS_MODE: AS

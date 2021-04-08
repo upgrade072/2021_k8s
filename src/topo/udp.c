@@ -279,7 +279,7 @@ void udp_client_proc(evutil_socket_t fd, short what, void *arg)
 	if (update_count > 0) {
 		fprintf(stderr, "%s() find assoc_info updated=(%d)!\n", __func__, update_count);
 		assoc_info_print(MAIN_CTX);
-		// TODO some rearrange
+		notify_to_ixpc(MAIN_CTX);
 	}
 
 UDP_CLIENT_FIN:
@@ -324,8 +324,8 @@ void udp_server_proc(evutil_socket_t fd, short what, void *arg)
 		goto UDP_SERVER_FIN;
 	} else if (res == NP_ADD || res == NP_REP) {
 		assoc_info_print(MAIN_CTX);
-		// TODO some rearrange
 		node_info_print(MAIN_CTX);
+		notify_to_ixpc(MAIN_CTX);
 	}
 
 	// reply topology message
@@ -341,4 +341,3 @@ void udp_server_proc(evutil_socket_t fd, short what, void *arg)
 UDP_SERVER_FIN:
 	return;
 }
-

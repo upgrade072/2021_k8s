@@ -12,12 +12,23 @@
 #include <fort.h>
 #include <libs.h>
 
+#include <keepalivelib.h>
+#include <comm_msgq.h>
+#include <comm_msgtypes_small.h>
+
 /* from env */
 #define EMS_TOPO_ADDR	"EMS_TOPO_ADDR"
 #define MY_SYS_NAME		"MY_SYS_NAME"
 #define TOPO_MAX_BUFFER	10240
 #define ASSOC_CLEAR_TM	60
 #define TOPO_MAX_LIST	128
+
+/* notify for IXPC */
+#define MTYPE_RELOAD_CONFIG_DATA	84
+
+/* from keepalive extern-library */
+extern int keepaliveIndex;
+extern T_keepalive *keepalive;
 
 typedef enum cluster_role_t {
 	CR_CLIENT = 0,
@@ -55,6 +66,9 @@ typedef struct main_ctx_t {
 	char type[128];
 	char group[128];
 	char port[128];
+
+	/* ixpc Qid */
+	int ixpcQid;
 
 	/* for communication */
 	char omp_ip[128];
@@ -133,6 +147,7 @@ int     assoc_info_get_from_omp(const char *recv_str, node_info_t *node_info);
 int     node_proc_omp_send_info(main_ctx_t *MAIN_CTX, char *recv_msg);
 int     node_proc_pod_send_info(main_ctx_t *MAIN_CTX, char *recv_msg);
 void    node_info_print(main_ctx_t *MAIN_CTX);
+void    notify_to_ixpc(main_ctx_t *MAIN_CTX);
 /* ------------------------- main.c --------------------------- */
 void    main_tick(evutil_socket_t fd, short what, void *arg);
 void    proc_exit();

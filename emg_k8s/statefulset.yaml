@@ -203,6 +203,12 @@ spec:
             mountPath: "/data"
           - name: shared-bin
             mountPath: "/bin"
+          livenessProbe:
+            failureThreshold: 3
+            periodSeconds: 1
+            httpGet:
+              path: /live/TOPO
+              port: 32768
           command: ["/bin/sh", "-c", "source /data/k8s.env;/topo"]
         - name: ixpc
           image: 192.168.70.143:5000/ixpc:1.0

@@ -1,0 +1,20 @@
+[GENERAL]
+SYSTEM_LABEL = EMGC_3
+SYSTEM_GROUP = EMG
+SYSTEM_TYPE = EMGC
+
+
+[APPLICATIONS]
+#name = where alarm_level msgQkey msgQkey_2 msgQkey_3 msgQkey_4
+# (1:minor, 2:major, 3:critical)
+#-------------------------------------------------------------------------------------------------
+IXPC = bin/ixpc 2 0x7500D NULL NULL
+SYSMGR = bin/sysmgr 3 0x7500E NULL NULL
+SAMD = bin/samd 3 0x7500F NULL NULL
+
+[TOM_PROCESS]
+TOM_PROC_NAME = RESTIF
+TOM_PROC_BIN = 1003
+
+[BACKUP_CONFIG]
+BACKUP_DIR = /data/emg/k8s-stateful-k8smgr-2/MP

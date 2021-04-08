@@ -1,0 +1,17 @@
+{
+	"spec": {
+		"containers": [
+		{
+			"name": "ixpc",
+				"ports": [
+				{
+					"name": "test-port",
+					"hostPort": 20000,
+					"containerPort": 20000,
+					"protocol": "TCP"
+				}
+				]
+		}
+		]
+	}
+}

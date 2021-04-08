@@ -427,3 +427,33 @@ void node_info_print(main_ctx_t *MAIN_CTX)
 	/* remove table */
     ft_destroy_table(table);
 }
+
+void notify_to_ixpc(main_ctx_t *MAIN_CTX)
+{
+	GeneralQMsgType txGenQMsg;
+	IxpcQMsgType    *txIxpcMsg;
+
+	memset(&txGenQMsg, 0, sizeof(GeneralQMsgType));
+
+	txGenQMsg.mtype = MTYPE_RELOAD_CONFIG_DATA;
+	txIxpcMsg = (IxpcQMsgType*)txGenQMsg.body;
+
+	strcpy(txIxpcMsg->head.srcSysName, MAIN_CTX->name);
+	strcpy(txIxpcMsg->head.dstSysName, MAIN_CTX->name);
+	strcpy(txIxpcMsg->head.srcAppName, "TOPO");
+	strcpy(txIxpcMsg->head.dstAppName, "IXPC");
+	txIxpcMsg->head.bodyLen = 0;
+
+	fprintf(stderr, "%s() try to send ixpc-notify from[%s:%s] to[%s:%s]!\n", 
+			__func__,
+			txIxpcMsg->head.srcSysName,
+			txIxpcMsg->head.dstSysName,
+			txIxpcMsg->head.srcAppName,
+			txIxpcMsg->head.dstAppName);
+
+	if (msgsnd(MAIN_CTX->ixpcQid, (void*)&txGenQMsg, sizeof(txIxpcMsg->head), IPC_NOWAIT) < 0) {
+		fprintf(stderr, "%s() fail to send notify to IXPC!\n", __func__);
+	} else {
+		fprintf(stderr, "%s() success to send notify to IXPC!\n", __func__);
+	}
+}

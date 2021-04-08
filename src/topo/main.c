@@ -4,6 +4,9 @@ void main_tick(evutil_socket_t fd, short what, void *arg)
 {
 	main_ctx_t *MAIN_CTX = (main_ctx_t *)arg;
 
+	/* I'm Alive */
+	keepalivelib_increase();
+
 	if (MAIN_CTX->role == CR_SERVER) {
 		int cleanup_count = assoc_info_cleanup(MAIN_CTX);
 		if (cleanup_count > 0) {

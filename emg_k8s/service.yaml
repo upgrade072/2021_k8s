@@ -23,7 +23,6 @@ metadata:
   labels:
     app: emgc
 spec:
-  #clusterIP: "" # "" means any of CIDR ip address
   type: LoadBalancer
   publishNotReadyAddresses: true
   selector:
@@ -51,7 +50,6 @@ metadata:
   labels:
     app: emgc
 spec:
-  #clusterIP: "" # "" means any of CIDR ip address
   type: LoadBalancer
   publishNotReadyAddresses: true
   selector:

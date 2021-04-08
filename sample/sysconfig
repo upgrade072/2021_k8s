@@ -1,0 +1,104 @@
+[GENERAL]
+SYSTEM_LABEL = $MY_INDEX+EMGC_
+SYSTEM_GROUP = EMG
+SYSTEM_TYPE  = EMGC
+VERSION      = T1.0.0
+OP_ACCOUNT   = emg
+HOST_NAME    = TBED
+SYSTEM_STATE = ACTIVE
+SERVER_ID	 = $MY_INDEX+caa54ccc-26b1-4c9a-b230-2e831e96b55
+
+[APPLICATIONS]
+# 범위 43001 ~ 43100
+#name   =   where       alarm_level                 msgQkey     msgQkey_2   msgQkey_3   msgQkey_4
+#                   (1:minor, 2:major, 3:critical)
+#-------------------------------------------------------------------------------------------------
+IXPC	=  bin/ixpc        2                        0x75001     NULL        NULL
+STMD	=  bin/stmd        3                        0x75002     NULL        NULL
+SHMD	=  bin/shmd        3                        0x75003     NULL        NULL
+SECURED	=  bin/secured     3                        0x75004     NULL        NULL
+DBM		=  bin/dbm         3                        0x75005     NULL        NULL
+BATCHD	=  bin/batchd      3                        0x75006     NULL        NULL
+ACNTIF  =  bin/acntif      3                        0x75007     0x75008     0x75009		0x75010
+RESTIF  =  bin/restif.sh   3                        TOMCAT      NULL        NULL
+OLCD    =  bin/olcd        3                        0x75011     NULL        NULL 
+FTPIB   =  bin/ftpib       3                        0x75012     NULL        NULL 
+PROVIB	=  bin/provib      3                        0x75013     NULL        NULL
+AUTHIF	=  bin/authif      3                        0x75014     0x75015     NULL
+EMGUIB	=  bin/emguib      3                        0x75016     NULL        NULL
+LOGD	=  bin/logd        3                        0x75017     NULL        NULL
+REPORTD =  bin/reportd     3                        0x75018     NULL        NULL
+SLOADERD =  bin/sloaderd   3                        0x75019     NULL        NULL
+NLOADERD =  bin/nloaderd   3                        0x75020     NULL        NULL
+K8SMGR	=  bin/k8smgr      3                        0x75021     NULL        NULL
+
+# TOM_PROC_NAME : [APPLICATIONS] name
+# TOM_PROC_BIN  : ps -ef | grep [TOM_PROC_BIN]
+[TOM_PROCESS]
+TOM_PROC_NAME = RESTIF
+TOM_PROC_BIN  = REST_PROV
+
+[MON_PROCESS]
+MON_PROC_NAME = RADIUSD
+MON_PROC_BIN  = radiusd
+
+[SHARED_MEMORY_KEY]
+# 범위 43101 ~ 43200
+#------------------------------
+#   NAME               KEY
+#------------------------------
+SHM_KEEPALIVE       = 0x93101
+SHM_NODE_INFO		= 0x93102
+SHM_LOC_SADB        = 0x93103
+SHM_LOC_SPDB        = 0x93104
+SHM_LOG_LEVEL_INFO  = 0x93105
+SHM_EXT_CONN		= 0x93106
+SHM_OVERLOAD_CTRL	= 0x93107
+SHM_SFDB        	= 0x93108
+SHM_NMS_RESEND      = 0x93109
+SHM_SYS_INFO        = 0x93110
+SHM_GTPP_SEQ		= 0x93111
+SHM_TRC_INFO        = 0x93112
+SHM_OVERLOAD_INFO  	= 0x93113
+SHM_EMGU_INFO		= 0x93114
+SHM_EMGU_TEST		= 0x93115
+
+# STMD
+SHM_STAT_INFO       = 0x93310
+SHM_TPS_INFO        = 0x93311
+SHM_OAMLOGLEVEL		= 0x93312
+
+# Host Statistics
+SHM_RADIUS_ACCESS_HOST = 0x93320
+
+[STMD_PORT]
+SGI_PORT = bond0
+
+[IXPC_CONFIG]
+#NFV RELOAD MESSAGE 수신시에 NOTI 해야 하는 블럭 리스트
+NFV_RELOAD_NOTI = SAMD DBM
+
+[MULTI_PROCESS_INFO]
+NUM_THREAD_SS   = 10
+
+[DB_CONFIG]
+DB_ID = emg
+DB_PWD = emg123
+#1:TCP/IP 2:UNIX 3:IPC 4:Embeded
+CONN_TYPE = 3
+
+[BACKUP_CONFIG]
+BACKUP_DIR = /data/emg/BACKUP/MP
+
+[STAT_REPORT]
+RADIUS   = ON
+TPS      = ON
+PKT_USAGE = ON
+
+[ACCOUNT_INFO]
+CRYPT_KEY = betweenarielnetemgandeffloemgpwd
+USER_PASSWD_EXPIRE_DAY = 90
+USER_PASSWD_ENC = 1
+
+[SYSLOG_KEY]
+KEY1 = rcsga
